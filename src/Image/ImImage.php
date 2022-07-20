@@ -1,0 +1,420 @@
+<?php
+
+namespace setasign\SetaPDF\ImageExtractor\Image;
+
+/**
+ * This class is used to convert a image in a pdf to a regular image
+ * It uses Imagick to create a new image
+ *
+ * Class ImImage
+ * @package setasign\SetaPDF\Demos\Core\ExtractImage\Image
+ */
+class ImImage extends AbstractImage
+{
+    /**
+     * The imagick instance
+     *
+     * @var \Imagick
+     */
+    protected $_image;
+
+    /**
+     * Array of pixels that will be imported
+     *
+     * @var array
+     */
+    protected $_pixels = [];
+
+    /**
+     * How many lines have been imported
+     *
+     * @var int
+     */
+    protected $_writtenLines = 0;
+
+    /**
+     * Map of pixel ordering as a string for Imagick.
+     *
+     * @var string
+     */
+    protected $_imMap = 'RGB';
+
+    /**
+     * 80% of the maximal usage while constructing the class
+     *
+     * @var int|string
+     */
+    protected $_maxMemoryUsage;
+
+    /**
+     * ImImage constructor.
+     * @param int $width
+     * @param int $height
+     * @param \SetaPDF_Core_ColorSpace $colorSpace
+     * @param array $decodeArray
+     * @param MaskInterface|null $mask
+     * @throws \Exception
+     */
+    public function __construct(
+        $width,
+        $height,
+        \SetaPDF_Core_ColorSpace $colorSpace,
+        $decodeArray,
+        MaskInterface $mask = null
+    ) {
+        // checking for existance of Imagick
+        if (!class_exists('Imagick')) {
+            throw new \Exception('No imagick class found');
+        }
+
+        parent::__construct($width, $height, $colorSpace, $decodeArray, $mask);
+
+        // create a new instance of Imagick
+        $this->_image = new \Imagick();
+
+        // store the maxmal memory usage to know when we have to write without crashing php
+        $this->_maxMemoryUsage = $this->_getMaxMemoryUsage() * .8;
+
+        // determine the Imagick color space
+        if ($this->_baseColorSpace instanceof \SetaPDF_Core_ColorSpace_DeviceCmyk) {
+            $this->_imMap = 'CMYK';
+        } elseif ($this->_baseColorSpace instanceof \SetaPDF_Core_ColorSpace_DeviceRgb) {
+            $this->_imMap = 'RGB';
+        } elseif ($this->_baseColorSpace instanceof \SetaPDF_Core_ColorSpace_DeviceGray) {
+            $this->_imMap = 'I';
+        }
+
+        // set up imagick with the color space
+        if ($this->_imMap === 'CMYK') {
+            $this->_image->newImage($width, $height, new \ImagickPixel('cmyk(0,0,0,0)'));
+            $this->_image->setColorspace(\Imagick::COLORSPACE_CMYK);
+            $this->_image->setImageColorspace(\Imagick::COLORSPACE_CMYK);
+        } else {
+            $this->_image->newImage($width, $height, 'white');
+        }
+
+        // always add a alpha value to the image
+        $this->_imMap .= 'A';
+    }
+
+    /**
+     * Returns if an image blob can be read by Imagick
+     *
+     * @param $imageType
+     * @return bool
+     */
+    public function canRead($imageType)
+    {
+        if ($imageType !== 'JPXDecode' && $imageType !== 'DCTDecode' && $imageType !== 'CCITTFaxDecode') {
+            return false;
+        }
+
+        if (
+            !$this->_colorSpace instanceof \SetaPDF_Core_ColorSpace_DeviceRgb &&
+            !$this->_colorSpace instanceof \SetaPDF_Core_ColorSpace_DeviceGray &&
+            !$this->_colorSpace instanceof \SetaPDF_Core_ColorSpace_IccBased &&
+            !$this->_colorSpace instanceof \SetaPDF_Core_ColorSpace_DeviceCmyk
+        ) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Reads a blob and fixes some strange behaviors when reading blobs with Imagick
+     *
+     * @param string $imageBlob
+     * @return void
+     * @throws \ImagickException
+     */
+    protected function _readBlob($imageBlob)
+    {
+        // read the blob
+        $this->_image->readImageBlob($imageBlob);
+
+        // cmyk will get inverted
+        if ($this->_baseColorSpace instanceof \SetaPDF_Core_ColorSpace_DeviceCmyk) {
+            $this->setNegated(true);
+        }
+
+        // iterate through all the pixels and the the alpha value to 255, so the images have no transparent background
+//        for ($x = 0; $x < $this->_width; $x++) {
+//            for ($y = 0; $y < $this->_height; $y++) {
+//                $this->_image->importImagePixels($x, $y, 1, 1, 'A', \Imagick::PIXEL_CHAR, array(255));
+//            }
+//        }
+
+        // set the written lines to the height so that there is no exception while finalizing
+        $this->_writtenLines = $this->_height;
+    }
+
+    /**
+     * Adds an pixel to the image,
+     * note the you need to call self::_getColor() to get the corresponding color from $color
+     *
+     * @param string $color
+     * @return void
+     */
+    public function writePixel($color)
+    {
+        // move the color entrys to the pixels
+        foreach ($this->_getColor($color) as $c) {
+            $this->_pixels[] = $c;
+        }
+
+        $this->_x++;
+        //when we have a full line
+        if ($this->_x === $this->_width) {
+            // reset x
+            $this->_x = 0;
+            // increase y
+            $this->_y++;
+
+            // check for memory usage
+            if (memory_get_usage() >= $this->_maxMemoryUsage) {
+                // import all currently available pixels
+                $this->_image->importImagePixels(
+                    0,
+                    $this->_writtenLines,
+                    $this->_width,
+                    $this->_y - $this->_writtenLines,
+                    $this->_imMap,
+                    \Imagick::PIXEL_CHAR,
+                    $this->_pixels
+                );
+                // reset the pixels
+                $this->_pixels = [];
+                // set the written lines to the current line
+                $this->_writtenLines = $this->_y;
+            }
+        }
+    }
+
+    /**
+     * Creates a new color array
+     *
+     * @param string $color
+     * @param null|int $alphaValue
+     * @return array
+     * @throws \SetaPDF_Exception_NotImplemented
+     */
+    public function _createColor($color, $alphaValue)
+    {
+        if ($this->_baseColorSpace instanceof \SetaPDF_Core_ColorSpace_DeviceGray) {
+            $result = [ord($color)];
+
+        } elseif ($this->_baseColorSpace instanceof \SetaPDF_Core_ColorSpace_DeviceRgb) {
+            $result = [
+                ord($color[0]),
+                ord($color[1]),
+                ord($color[2])
+            ];
+
+        } elseif ($this->_baseColorSpace instanceof \SetaPDF_Core_ColorSpace_DeviceCmyk) {
+            $result = [
+                ord($color[0]),
+                ord($color[1]),
+                ord($color[2]),
+                ord($color[3])
+            ];
+        } else {
+            throw new \SetaPDF_Exception_NotImplemented(
+                'Unsupported color space in ImageMagick image: ' . $this->_baseColorSpace->getFamily()
+            );
+        }
+
+        // add an alpha value
+        if ($alphaValue === null) {
+            $result[] = 255;
+        } else {
+            $result[] = $alphaValue;
+        }
+
+        return $result;
+    }
+
+    /**
+     * Applies an mask to the image
+     * @return void
+     */
+    protected function _applyMask()
+    {
+        // make sure that we have a mask
+        if ($this->_mask === null) {
+            return;
+        }
+
+        // prepare the mask
+        if (!$this->_mask instanceof ImImage) {
+            // we dont have an ImImage, so we cant get the Imagick instance directly
+            $imagick = new \Imagick();
+            if ($this->_mask->canOutputBlob()) {
+                // when we can output a blob, read the blob
+                $imagick->readImageBlob($this->_mask->getBlob($this));
+            } else {
+                // otherwise import the image pixel by pixel to Imagick
+                for ($y = 0; $y <= $this->getHeight(); $y++) {
+                    for ($x = 0; $x <= $this->getWidth(); $x++) {
+                        $imagick->importImagePixels($x, $y, 1, 1, 'I', \Imagick::PIXEL_CHAR, [$this->_mask->getCorrespondingAlphaValue($x, $y, $this)]);
+                    }
+                }
+            }
+        } else {
+            // get the imagick instance
+            $imagick = $this->_mask->getResult();
+        }
+
+        // make sure that everyting is right
+        if (isset($imagick) && $imagick instanceof \Imagick) {
+            $pixels = $imagick->exportImagePixels(0, 0, $this->_width, $this->_height, 'I', \Imagick::PIXEL_CHAR);
+        }
+
+        // when we have no pixels to import
+        if (!isset($pixels)) {
+            throw new \Exception('mask could not be imported');
+        }
+
+        // try to import pixels
+        $this->_image->importImagePixels(
+            0,
+            0,
+            $this->_width,
+            $this->_height,
+            'A',
+            \Imagick::PIXEL_CHAR,
+            $pixels
+        );
+    }
+
+    /**
+     * Writes the left pixels and add an embedded color space if there is one
+     *
+     * @throws \SetaPDF_Exception_NotImplemented
+     * @return void
+     */
+    protected function _prepareResult()
+    {
+        // check if we have something to write
+        if ($this->_writtenLines < $this->_height) {
+            // import all the pixels that are left
+            $this->_image->importImagePixels(
+                0,
+                $this->_writtenLines,
+                $this->_width,
+                $this->_height - $this->_writtenLines,
+                $this->_imMap,
+                \Imagick::PIXEL_CHAR,
+                $this->_pixels
+            );
+
+            // unset the pixels to save memory
+            unset($this->_pixels);
+        }
+
+        // try to add the embedded color space profile to the image
+        if ($this->_colorSpace instanceof \SetaPDF_Core_ColorSpace_IccBased) {
+            // get the icc stream
+            $stream = $this->_colorSpace->getIccProfileStream()->getStreamObject()->getStream();
+            // try to add the stream
+            if ($this->_image->profileImage('icc', $stream) !== true) {
+                // when something went wrong, we will end up here
+                throw new \SetaPDF_Exception_NotImplemented(
+                    'The ICC Stream could not be applied to ImageMagick image'
+                );
+            }
+        }
+    }
+
+    /**
+     * Returns the corresponding color from a specific pixel
+     *
+     * @param $x
+     * @param $y
+     * @return array
+     */
+    public function getColor($x, $y)
+    {
+        return array_values($this->_image->getImagePixelColor($x, $y)->getColor(false));
+    }
+
+    /**
+     * Negates an image
+     *
+     * @return void
+     */
+    protected function _negate()
+    {
+        $this->_image->negateImage(false);
+    }
+
+    /**
+     * Returns the resulting image instance
+     *
+     * @return \Imagick
+     */
+    public function getResult()
+    {
+        return $this->_image;
+    }
+
+    /**
+     * Returns a blob representation of the image
+     *
+     * @param AbstractImage $caller
+     * @return string
+     */
+    public function getBlob(AbstractImage $caller): string
+    {
+        return $this->_image->getImageBlob();
+    }
+
+    /**
+     * Gets called on the mask instance and destroys left parts
+     *
+     * @return void
+     */
+    protected function _cleanUp()
+    {
+        $this->_image->destroy();
+    }
+
+    /**
+     * Returns if the Image should read the MaskInterface pixel by pixel or if it should get the stream afterwards
+     *
+     * @return bool
+     */
+    public function isReadingPixelByPixel(): bool
+    {
+        return false;
+    }
+
+    /**
+     * Returns the current max_memory usage in bytes
+     *
+     * @return int
+     * @throws \Exception
+     */
+    protected function _getMaxMemoryUsage()
+    {
+        $iniValue = ini_get('memory_limit');
+
+        $resultingValue = (int)substr($iniValue, 0, strlen($iniValue)-2);
+        $last = strtolower($iniValue[strlen($iniValue)-1]);
+        switch ($last) {
+            case 'g':
+                $resultingValue *= 1073741824;
+                break;
+            case 'm':
+                $resultingValue *= 1048576;
+                break;
+            case 'k':
+                $resultingValue *= 1024;
+                break;
+            default:
+                throw new \Exception('Maximal memory usage could not be determined');
+        }
+
+        return $resultingValue;
+    }
+}

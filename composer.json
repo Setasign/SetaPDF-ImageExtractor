@@ -1,0 +1,28 @@
+{
+    "name": "setasign/setapdf-image-extractor",
+    "description": "A proof-of-concept for extracting images from PDF files with SetaPDF.",
+    "minimum-stability": "stable",
+    "license": "MIT",
+    "homepage": "https://github.com/Setasign/SetaPDF-ImageExtractor",
+    "authors": [
+        {
+            "name": "Setasign GmbH & Co. KG",
+            "email": "support@setasign.com"
+        }
+    ],
+    "require": {
+        "php": ">=7.4",
+        "setasign/setapdf-core": "^2.40"
+    },
+    "autoload": {
+        "psr-4": {
+            "setasign\\SetaPDF\\ImageExtractor\\": "src"
+        }
+    },
+    "repositories": [
+        {
+            "type": "composer",
+            "url": "https://www.setasign.com/downloads/"
+        }
+    ]
+}
