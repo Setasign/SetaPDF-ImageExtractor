@@ -1,12 +1,13 @@
 <?php
 
+declare(strict_types=1);
+
 namespace setasign\SetaPDF\ImageExtractor\Image;
 
 /**
- * This class is used to filter specific colors into transparent colors
- *
  * Class MaskArray
- * @package setasign\SetaPDF\Demos\Core\ExtractImage\Image
+ *
+ * This class is used to filter specific colors into transparent colors
  */
 class MaskArray implements MaskInterface
 {
@@ -15,24 +16,25 @@ class MaskArray implements MaskInterface
      *
      * @var array
      */
-    protected $_colors = array();
+    protected array $_colors = [];
 
     /**
      * The amount of colors
      *
      * @var int
      */
-    protected $_colorLength = 0;
+    protected int $_colorLength = 0;
 
     /**
-     * a flag if the MaskArray should try to get the current color or directly get the color
+     * A flag indicating if the MaskArray should try to get the current color or directly get the color.
      *
      * @var bool
      */
-    protected $_tryingToGetCurrentColor = true;
+    protected bool $_tryingToGetCurrentColor = true;
 
     /**
      * MaskArray constructor.
+     *
      * @param array $maskArray
      */
     public function __construct(array $maskArray)
@@ -100,7 +102,7 @@ class MaskArray implements MaskInterface
      * @throws \SetaPDF_Exception_NotImplemented
      * @return int
      */
-    public function getCorrespondingAlphaValue($x, $y, AbstractImage $caller): int
+    public function getCorrespondingAlphaValue(int $x, int $y, AbstractImage $caller): int
     {
         if ($this->_tryingToGetCurrentColor) {
             $currentColor = $caller->getColorOfCurrentPixel();

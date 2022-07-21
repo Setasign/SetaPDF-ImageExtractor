@@ -14,6 +14,10 @@
         "php": ">=7.4",
         "setasign/setapdf-core": "^2.40"
     },
+    "suggest": {
+        "ext-gd": "",
+        "ext-imagick": ""
+    },
     "autoload": {
         "psr-4": {
             "setasign\\SetaPDF\\ImageExtractor\\": "src"

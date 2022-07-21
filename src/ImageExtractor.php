@@ -1,16 +1,23 @@
 <?php
 
+declare(strict_types=1);
+
 namespace setasign\SetaPDF\ImageExtractor;
 
+use SetaPDF_Core_ColorSpace_Indexed;
+use SetaPDF_Core_Type_Dictionary_Helper as DictionaryHelper;
 use setasign\SetaPDF\ImageExtractor\Image\AbstractImage;
-use setasign\SetaPDF\ImageExtractor\Image\ImImage;
+use setasign\SetaPDF\ImageExtractor\Image\ImagickImage;
 use setasign\SetaPDF\ImageExtractor\Image\GdImage;
 use setasign\SetaPDF\ImageExtractor\Image\MaskArray;
 
+/**
+ * Class ImageExtractor
+ */
 class ImageExtractor
 {
-    const GD = 0;
-    const IM = 1;
+    public const GD = 0;
+    public const IMAGICK = 1;
 
     /**
      * Get the used Image-xObjects by a page number.
@@ -27,8 +34,7 @@ class ImageExtractor
         \SetaPDF_Core_Document $document,
         int $pageNo,
         int $detailLevel = ImageProcessor::DETAIL_LEVEL_ONLY_XOBJECT
-    ): array
-    {
+    ): array {
         $page = $document->getCatalog()->getPages()->getPage($pageNo);
         return self::getImagesByPage($page, $detailLevel);
     }
@@ -68,14 +74,14 @@ class ImageExtractor
     }
 
     /**
-     * Converts an xObject to to an real image object.
+     * Converts an xObject to a real image object.
      *
      * @param \SetaPDF_Core_XObject_Image $xObject
-     * @param $resultType
+     * @param int $resultType
      * @return mixed
      * @throws \SetaPDF_Exception_NotImplemented
      */
-    public static function xObjectToImage(\SetaPDF_Core_XObject_Image $xObject, $resultType)
+    public static function xObjectToImage(\SetaPDF_Core_XObject_Image $xObject, int $resultType)
     {
         // start to process the image
         $image = self::_processXObject($xObject, $resultType);
@@ -91,12 +97,12 @@ class ImageExtractor
      * Processes all incoming images (including Masks and SMasks)
      *
      * @param \SetaPDF_Core_XObject_Image $xObject
-     * @param $resultType
+     * @param int $resultType
      * @return AbstractImage
      * @throws \Exception
      * @throws \SetaPDF_Exception_NotImplemented
      */
-    protected static function _processXObject(\SetaPDF_Core_XObject_Image $xObject, $resultType)
+    protected static function _processXObject(\SetaPDF_Core_XObject_Image $xObject, int $resultType)
     {
         $_mask = null;
 
@@ -106,11 +112,11 @@ class ImageExtractor
         $dict = $xObjectStream->getValue();
 
         // get the width and height
-        $width = $xObject->getWidth();
-        $height = $xObject->getHeight();
+        $width = (int) $xObject->getWidth();
+        $height = (int) $xObject->getHeight();
 
         // decode the stream.
-        $decodedStream = static::_unfilterImage($dict, $xObjectStream, $leftFilter);
+        $decodedStream = static::_unfilterImage($dict, $xObjectStream, $remainingSupportedFilter);
 
         // get the colorspace
         $colorSpace = $xObject->getColorSpace();
@@ -120,16 +126,21 @@ class ImageExtractor
         // get the bits per component
         $bitsPerComponent = $xObject->getBitsPerComponent();
 
-        // check for an SMask (SMask has an higher priority than a normal mask)
+        if ($colorSpace instanceof SetaPDF_Core_ColorSpace_Indexed) {
+            $defaultDecodeArray = $colorSpace->getDefaultDecodeArray($bitsPerComponent);
+        } else {
+            $defaultDecodeArray = $colorSpace->getDefaultDecodeArray();
+        }
 
+        // check for an SMask (SMask has a higher priority than a normal mask)
         if ($dict->offsetExists('SMask')) {
             $smask = \SetaPDF_Core_Type_IndirectReference::ensureType($dict->getValue('SMask'));
             $_mask = static::_processXObject(\SetaPDF_Core_XObject::get($smask), $resultType);
         }
 
-        // check for an Mask and make sure that no mask was found before.
+        // check for a Mask and make sure that no mask was found before.
         if ($_mask === null && $dict->offsetExists('Mask')) {
-            $mask = \SetaPDF_Core_Type_Dictionary_Helper::getValue($dict, 'Mask');
+            $mask = DictionaryHelper::getValue($dict, 'Mask');
 
             //check if its a valid mask
             if ($mask instanceof \SetaPDF_Core_Type_Array) {
@@ -145,13 +156,13 @@ class ImageExtractor
         }
 
         $decodeArray = null;
-        // check for an decode array
+        // check for a decode array
         if ($dict->offsetExists('Decode')) {
-            // convert it to an php array
+            // convert it to a php array
             $_decodeArray = \SetaPDF_Core_Type_Array::ensureType($dict->getValue('Decode'))->toPhp(true);
 
             // make sure that the decode array so that no useless calculations are made
-            if ($_decodeArray != $colorSpace->getDefaultDecodeArray()) {
+            if ($_decodeArray != $defaultDecodeArray) {
                 // iterate through the different sets of decode entrys
                 for ($i = 0; $i < count($_decodeArray); $i += 2) {
                     // calculate the key
@@ -162,7 +173,9 @@ class ImageExtractor
                     $decodeArray[$key]['max'] = $_decodeArray[$i + 1];
 
                     // already calculate the part of the decodeArray where the color values are not needed
-                    $decodeArray[$key]['calculated'] = ($decodeArray[$key]['max'] - $decodeArray[$key]['min']) / (pow(2, $bitsPerComponent) - 1);
+                    $decodeArray[$key]['calculated'] = (
+                        ($decodeArray[$key]['max'] - $decodeArray[$key]['min']) / (2 ** $bitsPerComponent) - 1
+                    );
                 }
             }
         }
@@ -170,26 +183,28 @@ class ImageExtractor
         // create a new AbstractImage instance
         if (self::GD === $resultType) {
             $image = new GdImage($width, $height, $colorSpace, $decodeArray, $_mask);
-        } elseif (self::IM === $resultType) {
-            $image = new ImImage($width, $height, $colorSpace, $decodeArray, $_mask);
+        } elseif (self::IMAGICK === $resultType) {
+            $image = new ImagickImage($width, $height, $colorSpace, $decodeArray, $_mask);
         } else {
             throw new \InvalidArgumentException('Image type ' . $resultType . ' is not supported.');
         }
 
         // check if we have raw image data
-        if ($leftFilter !== '') {
-            // we dont have raw image data, so we need to check if we can read the image while it maintains the filter
-            if ($image->canRead($leftFilter)) {
-                // read the image
-                $image->readBlob($decodedStream);
-            } else {
+        if ($remainingSupportedFilter !== '') {
+            // we don't have raw image data, so we need to check if we can read the image while it maintains the filter
+            if (!$image->canRead($remainingSupportedFilter)) {
                 // the format is not supported
-                throw new \Exception(
-                    get_class($image) . ' does not support filter ' . $leftFilter . ' with colorspace ' . $colorSpace->getFamily()
-                );
+                throw new \Exception(\sprintf(
+                    '%s does not support filter %s with colorspace %s',
+                    get_class($image),
+                    $remainingSupportedFilter,
+                    $colorSpace->getFamily()
+                ));
             }
-        } else {
 
+            // read the image
+            $image->readBlob($decodedStream);
+        } else {
             // make sure that the color space is indexed
             if ($colorSpace instanceof \SetaPDF_Core_ColorSpace_Indexed) {
                 // iterate through the colors
@@ -221,12 +236,12 @@ class ImageExtractor
                 }
 
             } elseif ($bitsPerComponent === 1 || $bitsPerComponent === 2 || $bitsPerComponent === 4) {
-                // keep track of the images x axis, because if a image ends in the middle of a byte,
+                // keep track of the images x-axis, because if an image ends in the middle of a byte,
                 // we will need to ignore the left pieces of the byte
                 $x = 0;
 
                 // calculate a seperator so we can cut the byte
-                $byteSeperator = pow(2, $bitsPerComponent) - 1;
+                $byteSeperator = (2 ** $bitsPerComponent) - 1;
 
                 // read as long as the image is incomplete.
                 for ($i = 0; $i < $max;) {
@@ -246,7 +261,7 @@ class ImageExtractor
                         // get the current piece by using the byte seperator
                         $colorByte = ($byte >> $bitOffset) & $byteSeperator;
 
-                        // when we dont have an indexed image we will need to change the color to a value from 1 to 256
+                        // when we don't have an indexed image we will need to change the color to a value from 1 to 256
                         if (!$colorSpace instanceof \SetaPDF_Core_ColorSpace_Indexed) {
                             $colorByte = (255 / $bitsPerComponent) * $colorByte;
                         }
@@ -254,7 +269,7 @@ class ImageExtractor
                         // write the pixel with the color as a text representation
                         $image->writePixel(\chr($colorByte));
 
-                        // add one to the x axis
+                        // add one to the x-axis
                         $x++;
 
                         //add one to the written pixels
@@ -294,19 +309,22 @@ class ImageExtractor
      *
      * @param \SetaPDF_Core_Type_Dictionary $dict
      * @param \SetaPDF_Core_Type_Stream $stream
-     * @param string $leftSupportedFilter
+     * @param null|string &$remainingSupportedFilter
      * @return string
      * @throws \Exception
      */
-    protected static function _unfilterImage(\SetaPDF_Core_Type_Dictionary $dict, \SetaPDF_Core_Type_Stream $stream , &$leftSupportedFilter): string
-    {
+    protected static function _unfilterImage(
+        \SetaPDF_Core_Type_Dictionary $dict,
+        \SetaPDF_Core_Type_Stream $stream,
+        ?string &$remainingSupportedFilter
+    ): string {
         // unset the left supported filter
-        $leftSupportedFilter = '';
+        $remainingSupportedFilter = '';
         // get the stream
         $rawStream = $stream->getStream(true);
 
         // get the list of filters and convert them to a php array
-        $filters = \SetaPDF_Core_Type_Dictionary_Helper::getValue($dict, 'Filter');
+        $filters = DictionaryHelper::getValue($dict, 'Filter');
 
         // when there are no Filters, directly work with the image data
         if ($filters === null) {
@@ -322,7 +340,7 @@ class ImageExtractor
         $decodeArray = [];
 
         // convert the decode array to php
-        $decodeParams = \SetaPDF_Core_Type_Dictionary_Helper::getValue($dict, 'DecodeParms');
+        $decodeParams = DictionaryHelper::getValue($dict, 'DecodeParms');
         if ($decodeParams !== null) {
             if (!$decodeParams instanceof \SetaPDF_Core_Type_Array) {
                 $decodeArray = [$decodeParams];
@@ -332,7 +350,7 @@ class ImageExtractor
         }
 
         // start unfiltering the stream
-        $unfilteredStream = static::_unfilter($filterArray, $decodeArray, $rawStream, $leftSupportedFilter, $dict);
+        $unfilteredStream = static::_unfilter($filterArray, $decodeArray, $rawStream, $remainingSupportedFilter, $dict);
 
         // unset all local variables
         unset($rawStream, $filterArray, $decodeArray);
@@ -347,26 +365,24 @@ class ImageExtractor
      * @param array $filterArray
      * @param array $decodeArray
      * @param string $stream
-     * @param string $leftSupportedFilter
+     * @param null|string &$remainingSupportedFilter
      * @param \SetaPDF_Core_Type_Dictionary $dict
-     *
      * @return string
      * @throws \Exception
      */
-    protected static function _unfilter($filterArray, $decodeArray, $stream, &$leftSupportedFilter, \SetaPDF_Core_Type_Dictionary $dict): string
-    {
-        // count the filters
-        $filterCount = \count($filterArray);
+    protected static function _unfilter(
+        array $filterArray,
+        array $decodeArray,
+        string $stream,
+        ?string &$remainingSupportedFilter,
+        \SetaPDF_Core_Type_Dictionary $dict
+    ): string {
+        $lastKey = \array_key_last($filterArray);
 
         // iterate through the filters
         foreach ($filterArray as $key => $filter) {
-
             // set the decode params
-            if (isset($decodeArray[$key])) {
-                $decodeParam = $decodeArray[$key];
-            } else {
-                $decodeParam = null;
-            }
+            $decodeParam = $decodeArray[$key] ?? null;
 
             $filterName = $filter->getValue();
 
@@ -383,10 +399,10 @@ class ImageExtractor
                     }
 
                     if ($decodeParam instanceof \SetaPDF_Core_Type_Dictionary) {
-                        $predictor = \SetaPDF_Core_Type_Dictionary_Helper::getValue($decodeParam, 'Predictor', null, true);
-                        $colors = \SetaPDF_Core_Type_Dictionary_Helper::getValue($decodeParam, 'Colors', null, true);
-                        $bitsPerComponent = \SetaPDF_Core_Type_Dictionary_Helper::getValue($decodeParam, 'BitsPerComponent', null, true);
-                        $columns = \SetaPDF_Core_Type_Dictionary_Helper::getValue($decodeParam, 'Columns', null, true);
+                        $predictor = DictionaryHelper::getValue($decodeParam, 'Predictor', null, true);
+                        $colors = DictionaryHelper::getValue($decodeParam, 'Colors', null, true);
+                        $bitsPerComponent = DictionaryHelper::getValue($decodeParam, 'BitsPerComponent', null, true);
+                        $columns = DictionaryHelper::getValue($decodeParam, 'Columns', null, true);
 
                         $filterObject = new $filterClass($predictor, $colors, $bitsPerComponent, $columns);
                     } else {
@@ -414,126 +430,23 @@ class ImageExtractor
                     $filterObject = null;
                     break;
 
-                /**
-                 * No real decode is applied here, we are just adding a tiff header so that the image extractor can read it.
-                 */
                 case 'CCITTFaxDecode':
+                    // No real decode is applied here, we are just adding a tiff header so that the image extractor
+                    // can read it.
                     $filterObject = null;
-                    $k = 0;
-                    $encodedByteAlign = false;
-                    $columns = 1728;
-                    $rows = 0;
-
-                    /*
-                     * $endOfLine = false;
-                     *
-                     * This is already applied
-                     * Tiff6.pdf Page: 43/44
-                     */
-
-                    /*
-                     * $endOfBlock = true;
-                     *
-                     * This is already applied
-                     * Tiff6.pdf Page: 52
-                     */
-                    $blackLs1 = 0;
-                    $damagedRowsBeforeError = 0;
-
-                    if ($decodeParam instanceof \SetaPDF_Core_Type_Dictionary) {
-                        $k = \SetaPDF_Core_Type_Dictionary_Helper::getValue($decodeParam, 'K', $k, true);
-                        $encodedByteAlign = \SetaPDF_Core_Type_Dictionary_Helper::getValue($decodeParam, 'EncodedByteAlign', $encodedByteAlign, true);
-                        $columns = \SetaPDF_Core_Type_Dictionary_Helper::getValue($decodeParam, 'Columns', $columns, true);
-                        $rows = \SetaPDF_Core_Type_Dictionary_Helper::getValue($decodeParam, 'Rows', $rows, true);
-                        $blackLs1 = \SetaPDF_Core_Type_Dictionary_Helper::getValue($decodeParam, 'Blackls1', $blackLs1, true);
-                        $damagedRowsBeforeError = \SetaPDF_Core_Type_Dictionary_Helper::getValue($decodeParam, 'DamagedRowsBeforeError', $damagedRowsBeforeError, true);
-                    }
-
-                    if ($rows === 0) {
-                        $rows = \SetaPDF_Core_Type_Dictionary_Helper::getValue($dict, 'Height', $rows, true);
-                    }
-
-                    // from here on is the tiff header.
-                    if (!$dict->offsetExists('ColorSpace')) {
-                        $dict->offsetSet('ColorSpace', new \SetaPDF_Core_Type_Name('DeviceGray'));
-                    }
-
-                    $numOfTags = 10;
-
-                    $head = \pack(
-                        'CCvVv',
-                        0x49, // Byte order indication: Little indian
-                        0x49, // Byte order indication: Little indian
-                        42,   // Version number, has to be 42
-                        8,    // Offset
-                        $numOfTags    // Number of tags
-                    );
-
-                    $head .= \pack('vvVV',
-                        256, 4, 1, $columns // 1. Tag #imagewidth, long, 1, width value
-                    );
-
-                    $head .= \pack('vvVV',
-                        257, 4, 1, $rows    // 2. Tag #imagelength long, 1, height value
-                    );
-
-                    $head .= \pack('vvVV',
-                        258, 3, 1, 1        // 3. Tag #BitsPerSample Short, 1, 1
-                    );
-
-                    $head .= \pack('vvVV',
-                        259, 3, 1, ($k >= 0) ? 3 : 4   // 4. Tag #Compression
-                    );
-
-                    $head .= \pack('vvVV',
-                        262, 4, 1, $blackLs1 == 0 ? 0 : 1    // 5. Tag #PhotometricInterpretation
-                    // 0 = WhiteIsZero. For bilevel and grayscale images: 0 is imaged as white.
-                    // 1 = BlackIsZero. For bilevel and grayscale images: 0 is imaged as black.
-                    );
-
-                    $head .= \pack('vvVV',
-                        273, 4, 1, 12 + (12 * $numOfTags)    //12 + (12 * number of tags) , // 6. Tag #StripOffsets
-                    );
-
-                    $head .= \pack('vvVV',
-                        278, 4, 1, $rows         // 7. Tag #RowsPerStrip
-                    );
-
-                    $head .= \pack('vvVV',
-                        279, 4, 1, strlen($stream)     // 8. Tag #StripByteCounts
-                    );
-
-                    if ($k < 0) {
-                        $head .= \pack('vvVV',
-                            292, 4, 1, (0 | ($k & 0x01)) | ($encodedByteAlign & 0x01) >> 2         // 9. Tag #T4 Options
-                        );
-                    } else {
-                        $head .= \pack('vvVV',
-                            293, 4, 1, 0x02
-                        );
-                    }
-
-                    $head .= \pack('vvVV',
-                        326, 3, 1, $damagedRowsBeforeError // 10. Tag #BadFaxLines
-                    );
-
-                    $head .= \pack('v',
-                        0 // IFD
-                    );
-
-                    $stream = $head . $stream;
-
+                    $stream = self::_CCITTFaxDecode($decodeParam, $stream, $dict);
                     break;
+
                 default:
                     throw new \Exception('Filter not supported:' . $filterName);
             }
 
             if ($filterObject === null) {
-                if (($filterCount - 1) !== $key) {
-                    throw new \Exception('Filter not supported:' . $filterName);
+                if ($key !== $lastKey) {
+                    throw new \Exception('Filter not supported: ' . $filterName);
                 }
 
-                $leftSupportedFilter = $filterName;
+                $remainingSupportedFilter = $filterName;
             } else {
                 // filter the stream
                 $stream = $filterObject->decode($stream);
@@ -544,5 +457,123 @@ class ImageExtractor
 
         // return a AbstractImage
         return $stream;
+    }
+
+    /**
+     * @param mixed $decodeParam
+     * @param string $stream
+     * @param \SetaPDF_Core_Type_Dictionary $dict
+     * @return string
+     */
+    protected static function _CCITTFaxDecode(
+        $decodeParam,
+        string $stream,
+        \SetaPDF_Core_Type_Dictionary $dict
+    ): string {
+        $k = 0;
+        $encodedByteAlign = false;
+        $columns = 1728;
+        $rows = 0;
+
+        /*
+         * $endOfLine = false;
+         *
+         * This is already applied
+         * Tiff6.pdf Page: 43/44
+         */
+
+        /*
+         * $endOfBlock = true;
+         *
+         * This is already applied
+         * Tiff6.pdf Page: 52
+         */
+        $blackLs1 = 0;
+        $damagedRowsBeforeError = 0;
+
+        if ($decodeParam instanceof \SetaPDF_Core_Type_Dictionary) {
+            $k = DictionaryHelper::getValue($decodeParam, 'K', $k, true);
+            $encodedByteAlign = DictionaryHelper::getValue($decodeParam, 'EncodedByteAlign', $encodedByteAlign, true);
+            $columns = DictionaryHelper::getValue($decodeParam, 'Columns', $columns, true);
+            $rows = DictionaryHelper::getValue($decodeParam, 'Rows', $rows, true);
+            $blackLs1 = DictionaryHelper::getValue($decodeParam, 'Blackls1', $blackLs1, true);
+            $damagedRowsBeforeError = DictionaryHelper::getValue($decodeParam, 'DamagedRowsBeforeError', $damagedRowsBeforeError, true);
+        }
+
+        if ($rows === 0) {
+            $rows = DictionaryHelper::getValue($dict, 'Height', $rows, true);
+        }
+
+        // from here on is the tiff header.
+        if (!$dict->offsetExists('ColorSpace')) {
+            $dict->offsetSet('ColorSpace', new \SetaPDF_Core_Type_Name('DeviceGray'));
+        }
+
+        $numOfTags = 10;
+
+        $head = \pack(
+            'CCvVv',
+            0x49, // Byte order indication: Little indian
+            0x49, // Byte order indication: Little indian
+            42,   // Version number, has to be 42
+            8,    // Offset
+            $numOfTags    // Number of tags
+        );
+
+        $head .= \pack('vvVV',
+            256, 4, 1, $columns // 1. Tag #imagewidth, long, 1, width value
+        );
+
+        $head .= \pack('vvVV',
+            257, 4, 1, $rows    // 2. Tag #imagelength long, 1, height value
+        );
+
+        $head .= \pack('vvVV',
+            258, 3, 1, 1        // 3. Tag #BitsPerSample Short, 1, 1
+        );
+
+        $head .= \pack('vvVV',
+            259, 3, 1, ($k >= 0) ? 3 : 4   // 4. Tag #Compression
+        );
+
+        $head .= \pack('vvVV',
+            262, 4, 1, $blackLs1 ? 0 : 1    // 5. Tag #PhotometricInterpretation
+        // 0 = WhiteIsZero. For bilevel and grayscale images: 0 is imaged as white.
+        // 1 = BlackIsZero. For bilevel and grayscale images: 0 is imaged as black.
+        );
+
+        $head .= \pack('vvVV',
+            273, 4, 1, 12 + (12 * $numOfTags)    //12 + (12 * number of tags) , // 6. Tag #StripOffsets
+        );
+
+        $head .= \pack('vvVV',
+            278, 4, 1, $rows         // 7. Tag #RowsPerStrip
+        );
+
+        $head .= \pack('vvVV',
+            279, 4, 1, strlen($stream)     // 8. Tag #StripByteCounts
+        );
+
+        if ($k >= 0) {
+            // 9. Tag #T4 Options
+            $head .= \pack('vvVV',
+                293, 4, 1, (($k > 0 ? 0x01 : 0x00) | ($encodedByteAlign ? 0x04 : 0x00))
+            );
+        } else {
+            // 9. Tag #T6 Options
+            $head .= \pack('vvVV',
+                292, 4, 1, 0x00
+            );
+        }
+
+        $head .= \pack('vvVV',
+            326, 3, 1, $damagedRowsBeforeError // 10. Tag #BadFaxLines
+        );
+
+        $head .= \pack('v',
+            0 // IFD
+        );
+
+        return $head . $stream;
     }
 }

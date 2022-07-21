@@ -1,40 +1,42 @@
 <?php
 
+declare(strict_types=1);
+
 namespace setasign\SetaPDF\ImageExtractor;
 
 /**
  * Class ImageProcessor
- * @package setasign\SetaPDF\Demos\Core\ExtractImage
  */
 class ImageProcessor
 {
     public const DETAIL_LEVEL_FULL = 0;
     public const DETAIL_LEVEL_ONLY_XOBJECT = 1;
 
-    protected ?\SetaPDF_Core_Canvas_GraphicState $_graphicState;
     protected string $_stream;
+
     protected ?\SetaPDF_Core_Type_Dictionary $_resources;
-    protected $_contentParser;
+
+    protected ?\SetaPDF_Core_Canvas_GraphicState $_graphicState;
+
+    protected ?\SetaPDF_Core_Parser_Content $_contentParser = null;
 
     protected array $_result = [];
+
     protected int $_detailLevel = self::DETAIL_LEVEL_ONLY_XOBJECT;
 
     /**
      * The constructor.
      *
-     * The parameter are the content stream and its resources dictionary.
-     *
-     * @param string $stream
+     * @param string $contentStream
      * @param \SetaPDF_Core_Type_Dictionary $resources
      * @param \SetaPDF_Core_Canvas_GraphicState|null $graphicState
      */
     public function __construct(
-        string                            $stream,
-        \SetaPDF_Core_Type_Dictionary     $resources,
+        string $contentStream,
+        \SetaPDF_Core_Type_Dictionary $resources,
         \SetaPDF_Core_Canvas_GraphicState $graphicState = null
-    )
-    {
-        $this->_stream = $stream;
+    ) {
+        $this->_stream = $contentStream;
         $this->_resources = $resources;
         $this->_graphicState = $graphicState ?? new \SetaPDF_Core_Canvas_GraphicState();
     }
@@ -46,9 +48,9 @@ class ImageProcessor
      *
      *   if detail level is ImageProcessor::DETAIL_LEVEL_ONLY_XOBJECT it will just return an array with xObjects.
      *
-     * @param $detailLevel
+     * @param int $detailLevel
      */
-    public function setDetailLevel($detailLevel): void
+    public function setDetailLevel(int $detailLevel): void
     {
         $this->_detailLevel = $detailLevel;
     }
@@ -246,7 +248,7 @@ class ImageProcessor
                 return;
             }
 
-            // we have an image object, calculate it's outer points in user space
+            // we have an image object, calculate its outer points in user space
             $gs = $this->getGraphicState();
             $ll = $gs->toUserSpace(new \SetaPDF_Core_Geometry_Vector(0, 0, 1));
             $ul = $gs->toUserSpace(new \SetaPDF_Core_Geometry_Vector(0, 1, 1));

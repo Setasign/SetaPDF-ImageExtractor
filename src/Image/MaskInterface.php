@@ -1,12 +1,13 @@
 <?php
 
+declare(strict_types=1);
+
 namespace setasign\SetaPDF\ImageExtractor\Image;
 
 /**
- * This interface is used to read "alpha" values
- *
  * Interface MaskInterface
- * @package setasign\SetaPDF\Demos\Core\ExtractImage\Image
+ *
+ * This interface is used to read "alpha" values
  */
 interface MaskInterface
 {
@@ -16,22 +17,22 @@ interface MaskInterface
      * @param int $x
      * @param int $y
      * @param AbstractImage $caller
-     * @return integer
+     * @return int
      */
-    public function getCorrespondingAlphaValue($x, $y, AbstractImage $caller): int;
+    public function getCorrespondingAlphaValue(int $x, int $y, AbstractImage $caller): int;
 
     /**
      * Returns if the AbstractImage should read the MaskInterface pixel by pixel or if it should get the stream afterwards
      * Note that the interface always should be able to read "alpha" values
      *
-     * @return boolean
+     * @return bool
      */
     public function isReadingPixelByPixel(): bool;
 
     /**
      * Returns if the Mask is able to output a blob
      *
-     * @return boolean
+     * @return bool
      */
     public function canOutputBlob(): bool;
 

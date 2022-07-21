@@ -1,12 +1,13 @@
 <?php
 
+declare(strict_types=1);
+
 namespace setasign\SetaPDF\ImageExtractor\Image;
 
 /**
- * This class represents an image
- *
  * Class AbstractImage
- * @package setasign\SetaPDF\Demos\Core\ExtractImage\Image
+ *
+ * This class represents an image
  */
 abstract class AbstractImage implements MaskInterface
 {
@@ -15,76 +16,76 @@ abstract class AbstractImage implements MaskInterface
      *
      * @var int
      */
-    protected $_width;
+    protected int $_width;
     /**
      * The images height
      *
      * @var int
      */
-    protected $_height;
+    protected int $_height;
 
     /**
      * The current writing pos
      *
      * @var int
      */
-    protected $_x = 0;
+    protected int $_x = 0;
 
     /**
      * The current writing pos
      *
      * @var int
      */
-    protected $_y = 0;
+    protected int $_y = 0;
 
     /**
      * Flag to check if the iamge alreay has been finalized
      *
      * @var bool
      */
-    private $_finalized = false;
+    private bool $_finalized = false;
 
     /**
      * An array containing all the indexed colors
      *
      * @var array
      */
-    protected $_indexedColors = [];
+    protected array $_indexedColors = [];
 
     /**
      * An array containing all colors that have been created
      *
      * @var array
      */
-    protected $_colors = [];
+    protected array $_colors = [];
 
     /**
      * interface for setting the mask
      *
      * @var null|MaskInterface
      */
-    protected $_mask;
+    protected ?MaskInterface $_mask;
 
     /**
      * An Array containing the data to decode the image
      *
-     * @var array
+     * @var null|array
      */
-    protected $_decodeArray;
+    protected ?array $_decodeArray;
 
     /**
      * An array that stores all the colors that have been decoded
      *
      * @var array
      */
-    protected $_decodedColors = [];
+    protected array $_decodedColors = [];
 
     /**
      * The images color space
      *
      * @var \SetaPDF_Core_ColorSpace
      */
-    protected $_colorSpace;
+    protected \SetaPDF_Core_ColorSpace $_colorSpace;
 
     /**
      *  The images color component color space
@@ -98,35 +99,35 @@ abstract class AbstractImage implements MaskInterface
      *
      * @var bool|null
      */
-    private $_isReadingPixelByPixel = null;
+    private ?bool $_isReadingPixelByPixel = null;
 
     /**
      * Flag to see if the images was/will be negated
      *
      * @var bool
      */
-    protected $_negated = false;
+    protected bool $_negated = false;
 
     /**
      * Value that contains the last/current pixel
      *
      * @var null|string
      */
-    protected $_currentColor;
+    protected ?string $_currentColor = null;
 
     /**
      * AbstractImage constructor.
      * @param int $width
      * @param int $height
      * @param \SetaPDF_Core_ColorSpace $colorSpace
-     * @param array $decodeArray
+     * @param null|array $decodeArray
      * @param MaskInterface|null $mask
      */
     public function __construct(
-        $width,
-        $height,
+        int $width,
+        int $height,
         \SetaPDF_Core_ColorSpace $colorSpace,
-        $decodeArray,
+        ?array $decodeArray,
         MaskInterface $mask = null
     ) {
         $this->_width = $width;
@@ -261,7 +262,7 @@ abstract class AbstractImage implements MaskInterface
      * @param string $imageBlob
      * @return void
      */
-    public function readBlob($imageBlob)
+    public function readBlob(string $imageBlob)
     {
         // read the blob
         $this->_readBlob($imageBlob);
@@ -403,7 +404,7 @@ abstract class AbstractImage implements MaskInterface
      * Returns if the Mask is able to output a blob
      * @see MaskInterface::canOutputBlob()
      *
-     * @return boolean
+     * @return bool
      */
     public function canOutputBlob(): bool
     {
@@ -415,7 +416,7 @@ abstract class AbstractImage implements MaskInterface
      *
      * @return int
      */
-    public function getWidth()
+    public function getWidth(): int
     {
         return $this->_width;
     }
@@ -425,7 +426,7 @@ abstract class AbstractImage implements MaskInterface
      *
      * @return int
      */
-    public function getHeight()
+    public function getHeight(): int
     {
         return $this->_height;
     }
@@ -445,17 +446,17 @@ abstract class AbstractImage implements MaskInterface
      *
      * @return \SetaPDF_Core_ColorSpace
      */
-    public function getColorSpace()
+    public function getColorSpace(): \SetaPDF_Core_ColorSpace
     {
         return $this->_colorSpace;
     }
 
-    public function setNegated($bool)
+    public function setNegated(bool $value)
     {
-        $this->_negated = $bool;
+        $this->_negated = $value;
     }
 
-    public function getNegated()
+    public function getNegated(): bool
     {
         return $this->_negated;
     }
@@ -463,10 +464,10 @@ abstract class AbstractImage implements MaskInterface
     /**
      * Returns if the instance can read a specific type of blob
      *
-     * @param $imageType
+     * @param string $imageType
      * @return bool
      */
-    public abstract function canRead($imageType);
+    abstract public function canRead(string $imageType): bool;
 
     /**
      * Writes a pixel into the image
@@ -474,7 +475,7 @@ abstract class AbstractImage implements MaskInterface
      * @param string $color
      * @return void
      */
-    public abstract function writePixel($color);
+    abstract public function writePixel(string $color): void;
 
     /**
      * Returns a new color
@@ -483,7 +484,7 @@ abstract class AbstractImage implements MaskInterface
      * @param null|int $alphaValue
      * @return mixed
      */
-    protected abstract function _createColor($color, $alphaValue);
+    abstract protected function _createColor(string $color, ?int $alphaValue);
 
     /**
      * Reads a blob
@@ -491,7 +492,7 @@ abstract class AbstractImage implements MaskInterface
      * @param string $imageBlob
      * @return void
      */
-    protected abstract function _readBlob($imageBlob);
+    abstract protected function _readBlob(string $imageBlob): void;
 
     /**
      * Applies a mask
@@ -499,35 +500,35 @@ abstract class AbstractImage implements MaskInterface
      *
      * @return void
      */
-    protected abstract function _applyMask();
+    abstract protected function _applyMask(): void;
 
     /**
-     * Negates a image
+     * Negates an image
      *
      * @return void
      */
-    protected abstract function _negate();
+    abstract protected function _negate(): void;
 
     /**
      * Returns the resulting instance
      *
      * @return mixed
      */
-    public abstract function getResult();
+    abstract public function getResult();
 
     /**
      * Prepares the result
      *
      * @return void
      */
-    protected abstract function _prepareResult();
+    abstract protected function _prepareResult(): void;
 
     /**
      * Gets called on the mask instance and destroys left parts
      *
      * @return void
      */
-    protected abstract function _cleanUp();
+    abstract protected function _cleanUp(): void;
 
     /**
      * Returns the color on $x and $y
@@ -542,5 +543,5 @@ abstract class AbstractImage implements MaskInterface
      * @param int $y
      * @return array
      */
-    public abstract function getColor($x, $y);
+    abstract public function getColor(int $x, int $y): array;
 }

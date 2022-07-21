@@ -1,43 +1,44 @@
 <?php
 
+declare(strict_types=1);
+
 namespace setasign\SetaPDF\ImageExtractor\Image;
 
 /**
- * This class is used to convert a image in a pdf to a regular image
- * It uses Imagick to create a new image
+ * Class ImagickImage
  *
- * Class ImImage
- * @package setasign\SetaPDF\Demos\Core\ExtractImage\Image
+ * This class is used to convert a image in a pdf to a regular image.
+ * It uses Imagick to create a new image.
  */
-class ImImage extends AbstractImage
+class ImagickImage extends AbstractImage
 {
     /**
      * The imagick instance
      *
      * @var \Imagick
      */
-    protected $_image;
+    protected \Imagick $_image;
 
     /**
      * Array of pixels that will be imported
      *
      * @var array
      */
-    protected $_pixels = [];
+    protected array $_pixels = [];
 
     /**
      * How many lines have been imported
      *
      * @var int
      */
-    protected $_writtenLines = 0;
+    protected int $_writtenLines = 0;
 
     /**
      * Map of pixel ordering as a string for Imagick.
      *
      * @var string
      */
-    protected $_imMap = 'RGB';
+    protected string $_imMap = 'RGB';
 
     /**
      * 80% of the maximal usage while constructing the class
@@ -51,19 +52,19 @@ class ImImage extends AbstractImage
      * @param int $width
      * @param int $height
      * @param \SetaPDF_Core_ColorSpace $colorSpace
-     * @param array $decodeArray
+     * @param null|array $decodeArray
      * @param MaskInterface|null $mask
      * @throws \Exception
      */
     public function __construct(
-        $width,
-        $height,
+        int $width,
+        int $height,
         \SetaPDF_Core_ColorSpace $colorSpace,
-        $decodeArray,
+        ?array $decodeArray,
         MaskInterface $mask = null
     ) {
         // checking for existance of Imagick
-        if (!class_exists('Imagick')) {
+        if (!class_exists(\Imagick::class)) {
             throw new \Exception('No imagick class found');
         }
 
@@ -73,6 +74,7 @@ class ImImage extends AbstractImage
         $this->_image = new \Imagick();
 
         // store the maxmal memory usage to know when we have to write without crashing php
+        // todo this whole logic should be changed to a configurable buffer size
         $this->_maxMemoryUsage = $this->_getMaxMemoryUsage() * .8;
 
         // determine the Imagick color space
@@ -93,19 +95,19 @@ class ImImage extends AbstractImage
             $this->_image->newImage($width, $height, 'white');
         }
 
-        // always add a alpha value to the image
+        // always add an alpha value to the image
         $this->_imMap .= 'A';
     }
 
     /**
      * Returns if an image blob can be read by Imagick
      *
-     * @param $imageType
+     * @param string $imageType
      * @return bool
      */
-    public function canRead($imageType)
+    public function canRead(string $imageType): bool
     {
-        if ($imageType !== 'JPXDecode' && $imageType !== 'DCTDecode' && $imageType !== 'CCITTFaxDecode') {
+        if (!\in_array($imageType, ['JPXDecode', 'DCTDecode', 'CCITTFaxDecode'], true)) {
             return false;
         }
 
@@ -128,7 +130,7 @@ class ImImage extends AbstractImage
      * @return void
      * @throws \ImagickException
      */
-    protected function _readBlob($imageBlob)
+    protected function _readBlob(string $imageBlob): void
     {
         // read the blob
         $this->_image->readImageBlob($imageBlob);
@@ -156,7 +158,7 @@ class ImImage extends AbstractImage
      * @param string $color
      * @return void
      */
-    public function writePixel($color)
+    public function writePixel(string $color): void
     {
         // move the color entrys to the pixels
         foreach ($this->_getColor($color) as $c) {
@@ -199,7 +201,7 @@ class ImImage extends AbstractImage
      * @return array
      * @throws \SetaPDF_Exception_NotImplemented
      */
-    public function _createColor($color, $alphaValue)
+    public function _createColor(string $color, ?int $alphaValue): array
     {
         if ($this->_baseColorSpace instanceof \SetaPDF_Core_ColorSpace_DeviceGray) {
             $result = [ord($color)];
@@ -235,10 +237,10 @@ class ImImage extends AbstractImage
     }
 
     /**
-     * Applies an mask to the image
+     * Applies a mask to the image
      * @return void
      */
-    protected function _applyMask()
+    protected function _applyMask(): void
     {
         // make sure that we have a mask
         if ($this->_mask === null) {
@@ -246,7 +248,7 @@ class ImImage extends AbstractImage
         }
 
         // prepare the mask
-        if (!$this->_mask instanceof ImImage) {
+        if (!$this->_mask instanceof ImagickImage) {
             // we dont have an ImImage, so we cant get the Imagick instance directly
             $imagick = new \Imagick();
             if ($this->_mask->canOutputBlob()) {
@@ -293,7 +295,7 @@ class ImImage extends AbstractImage
      * @throws \SetaPDF_Exception_NotImplemented
      * @return void
      */
-    protected function _prepareResult()
+    protected function _prepareResult(): void
     {
         // check if we have something to write
         if ($this->_writtenLines < $this->_height) {
@@ -329,11 +331,11 @@ class ImImage extends AbstractImage
     /**
      * Returns the corresponding color from a specific pixel
      *
-     * @param $x
-     * @param $y
+     * @param int $x
+     * @param int $y
      * @return array
      */
-    public function getColor($x, $y)
+    public function getColor(int $x, int $y): array
     {
         return array_values($this->_image->getImagePixelColor($x, $y)->getColor(false));
     }
@@ -343,7 +345,7 @@ class ImImage extends AbstractImage
      *
      * @return void
      */
-    protected function _negate()
+    protected function _negate(): void
     {
         $this->_image->negateImage(false);
     }
@@ -374,7 +376,7 @@ class ImImage extends AbstractImage
      *
      * @return void
      */
-    protected function _cleanUp()
+    protected function _cleanUp(): void
     {
         $this->_image->destroy();
     }

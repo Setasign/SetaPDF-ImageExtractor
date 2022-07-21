@@ -1,13 +1,14 @@
 <?php
 
+declare(strict_types=1);
+
 namespace setasign\SetaPDF\ImageExtractor\Image;
 
 /**
- * This class is used to convert an image in a pdf to a regular image
- * It uses gd to create a new image
- *
  * Class GdImage
- * @package setasign\SetaPDF\Demos\Core\ExtractImage\Image
+ *
+ * This class is used to convert an image in a pdf to a regular image.
+ * It uses gd to create a new image.
  */
 class GdImage extends AbstractImage
 {
@@ -19,30 +20,12 @@ class GdImage extends AbstractImage
     protected $_image;
 
     /**
-     * GdImage constructor.
-     * @param int $width
-     * @param int $height
-     * @param \SetaPDF_Core_ColorSpace $colorSpace
-     * @param array $decodeArray
-     * @param MaskInterface|null $mask
-     */
-    public function __construct(
-        $width,
-        $height,
-        \SetaPDF_Core_ColorSpace $colorSpace,
-        $decodeArray,
-        MaskInterface $mask = null
-    ) {
-        parent::__construct($width, $height, $colorSpace, $decodeArray, $mask);
-    }
-
-    /**
      * Returns if an image blob can be read by gd
      *
-     * @param $imageType
+     * @param string $imageType
      * @return bool
      */
-    public function canRead($imageType)
+    public function canRead(string $imageType): bool
     {
         if ($imageType !== 'DCTDecode') {
             return false;
@@ -71,7 +54,7 @@ class GdImage extends AbstractImage
      * @param string $imageBlob
      * @throws \Exception
      */
-    protected function _readBlob($imageBlob)
+    protected function _readBlob(string $imageBlob): void
     {
         // read the blob
         $_image = imagecreatefromstring($imageBlob);
@@ -91,7 +74,7 @@ class GdImage extends AbstractImage
      *
      * @param string $color
      */
-    public function writePixel($color)
+    public function writePixel(string $color): void
     {
         imagesetpixel($this->getImage(), $this->_x, $this->_y, $this->_getColor($color));
 
@@ -110,7 +93,7 @@ class GdImage extends AbstractImage
      * @return int
      * @throws \SetaPDF_Exception_NotImplemented
      */
-    protected function _createColor($color, $alphaValue)
+    protected function _createColor(string $color, ?int $alphaValue): int
     {
         if ($this->_baseColorSpace instanceof \SetaPDF_Core_ColorSpace_DeviceGray) {
             // color conversion (Greyscale to RGB)
@@ -129,9 +112,9 @@ class GdImage extends AbstractImage
                 $colorArr[$i] = ord($color[$i]) / 255;
             }
 
-            $r = (1 - ($colorArr[0] * (1 - $colorArr[3]) + $colorArr[3])) * 255;
-            $g = (1 - ($colorArr[1] * (1 - $colorArr[3]) + $colorArr[3])) * 255;
-            $b = (1 - ($colorArr[2] * (1 - $colorArr[3]) + $colorArr[3])) * 255;
+            $r = (int) ((1 - ($colorArr[0] * (1 - $colorArr[3]) + $colorArr[3])) * 255);
+            $g = (int) ((1 - ($colorArr[1] * (1 - $colorArr[3]) + $colorArr[3])) * 255);
+            $b = (int) ((1 - ($colorArr[2] * (1 - $colorArr[3]) + $colorArr[3])) * 255);
         } else {
             // unknown color
             throw new \SetaPDF_Exception_NotImplemented(
@@ -145,7 +128,7 @@ class GdImage extends AbstractImage
             $resultingColor = imagecolorallocate($this->getImage(), $r, $g, $b);
         } else {
             // create a color with alpha, but translate the alpha value
-            $alphaValue = 127 - (($alphaValue / 255) * 127);
+            $alphaValue = (int) (127 - (($alphaValue / 255) * 127));
             $resultingColor = imagecolorallocatealpha($this->getImage(), $r, $g, $b, $alphaValue);
         }
 
@@ -157,7 +140,7 @@ class GdImage extends AbstractImage
      * Applies a mask to a image
      * this can take a while, because gd needs to iterate the image pixel by pixel
      */
-    protected function _applyMask()
+    protected function _applyMask(): void
     {
         // make sure that we have a mask
         if ($this->_mask === null) {
@@ -195,7 +178,7 @@ class GdImage extends AbstractImage
                     $color = imagecolorsforindex($this->getImage(), $colorIndex);
 
                     // translate the alpha value
-                    $alphaValue = 127 - (($alphaValue / 255) * 127);
+                    $alphaValue = (int) (127 - (($alphaValue / 255) * 127));
 
                     // create a new color with alpha value
                     $colors[$colorKey] = imagecolorallocatealpha(
@@ -223,7 +206,7 @@ class GdImage extends AbstractImage
      *
      * @return void
      */
-    protected function _prepareResult()
+    protected function _prepareResult(): void
     {
     }
 
@@ -234,7 +217,7 @@ class GdImage extends AbstractImage
      * @param int $y
      * @return array
      */
-    public function getColor($x, $y)
+    public function getColor(int $x, int $y): array
     {
         return array_values(imagecolorsforindex($this->_image, imagecolorat($this->getImage(), $x, $y)));
     }
@@ -245,7 +228,7 @@ class GdImage extends AbstractImage
      *
      * @return void
      */
-    protected function _cleanUp()
+    protected function _cleanUp(): void
     {
         imagedestroy($this->_image);
     }
@@ -265,7 +248,7 @@ class GdImage extends AbstractImage
      *
      * @return void
      */
-    protected function _negate()
+    protected function _negate(): void
     {
         imagefilter($this->getImage(), IMG_FILTER_NEGATE);
     }

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use setasign\SetaPDF\ImageExtractor\ImageExtractor;
 
 set_time_limit(180);
@@ -87,7 +89,7 @@ for ($pageNo = 1; $pageNo <= $pageCount; $pageNo++) {
         $image = null;
         try {
             $startTime = microtime(true);
-            $im = ImageExtractor::xObjectToImage($xObject, ImageExtractor::IM);
+            $im = ImageExtractor::xObjectToImage($xObject, ImageExtractor::IMAGICK);
             $timeNeeded = (microtime(true) - $startTime);
             $totalTimeIm += $timeNeeded;
             echo 'finished in: ' . $timeNeeded;
