@@ -45,7 +45,7 @@ $imageCount = 0;
 $totalStartTime = microtime(true);
 
 for ($pageNo = 1; $pageNo <= $pageCount; $pageNo++) {
-    $images = ImageExtractor::getImagesByPageNo($document, $pageNo);
+    $images = ImageExtractor::getImagesByPageNo($document, $pageNo, \setasign\SetaPDF\ImageExtractor\ImageProcessor::DETAIL_LEVEL_FULL);
 
     foreach ($images as $imageData) {
         /**
