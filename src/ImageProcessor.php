@@ -135,6 +135,7 @@ class ImageProcessor
             $this->_contentParser->registerOperator(['q', 'Q'], [$this, '_onGraphicStateChange']);
             $this->_contentParser->registerOperator('cm', [$this, '_onCurrentTransformationMatrix']);
             $this->_contentParser->registerOperator('Do', [$this, '_onFormXObject']);
+            $this->_contentParser->registerOperator('BI', [$this, '_onInlineImage']);
         }
 
         return $this->_contentParser;
@@ -218,6 +219,7 @@ class ImageProcessor
             }
 
             $processor = new self($stream, $resources, $gs);
+            $processor->setDetailLevel($this->_detailLevel);
 
             foreach ($processor->process() AS $image) {
                 $this->_result[] = $image;
@@ -270,5 +272,36 @@ class ImageProcessor
                 'xObject' => $xObject
             ];
         }
+    }
+
+    /**
+     * Callback for inline image operator
+     *
+     * @param array $arguments
+     * @param string $operator
+     * @return false|void
+     */
+    public function _onInlineImage($arguments, $operator)
+    {
+        $parser = $this->_contentParser->getParser();
+        $reader = $parser->getReader();
+
+        $pos = $reader->getPos();
+        $offset = $reader->getOffset();
+
+        while (
+            (\preg_match(
+                '/EI[\x00\x09\x0A\x0C\x0D\x20]/',
+                $reader->getBuffer(),
+                $m,
+                PREG_OFFSET_CAPTURE
+            )) === 0
+        ) {
+            if ($reader->increaseLength(1000) === false) {
+                return false;
+            }
+        }
+
+        $parser->reset($pos + $offset + $m[0][1] + strlen($m[0][0]));
     }
 }
