@@ -9,9 +9,6 @@ namespace setasign\SetaPDF\ImageExtractor;
  */
 class ImageProcessor
 {
-    public const DETAIL_LEVEL_FULL = 0;
-    public const DETAIL_LEVEL_ONLY_XOBJECT = 1;
-
     protected string $_stream;
 
     protected ?\SetaPDF_Core_Type_Dictionary $_resources;
@@ -22,7 +19,6 @@ class ImageProcessor
 
     protected array $_result = [];
 
-    protected int $_detailLevel = self::DETAIL_LEVEL_ONLY_XOBJECT;
     protected bool $_switchWidthAndHeight = false;
 
     /**
@@ -34,26 +30,15 @@ class ImageProcessor
      */
     public function __construct(
         string $contentStream,
+        bool $switchWidthAndHeight,
         \SetaPDF_Core_Type_Dictionary $resources,
+
         \SetaPDF_Core_Canvas_GraphicState $graphicState = null
     ) {
         $this->_stream = $contentStream;
+        $this->_switchWidthAndHeight = $switchWidthAndHeight;
         $this->_resources = $resources;
         $this->_graphicState = $graphicState ?? new \SetaPDF_Core_Canvas_GraphicState();
-    }
-
-    /**
-     * Sets the detail level,
-     *   if detail level is ImageProcessor::DETAIL_LEVEL_FULL it will give extra information such as width, height,
-     *   current graphics state, position and such.
-     *
-     *   if detail level is ImageProcessor::DETAIL_LEVEL_ONLY_XOBJECT it will just return an array with xObjects.
-     *
-     * @param int $detailLevel
-     */
-    public function setDetailLevel(int $detailLevel): void
-    {
-        $this->_detailLevel = $detailLevel;
     }
 
     /**
@@ -95,35 +80,9 @@ class ImageProcessor
      */
     public function process(): array
     {
-        if ($this->_detailLevel === self::DETAIL_LEVEL_FULL) {
-            // process everything (graphics state, image pos, ...)
-
-            // parse the content stream
-            $parser = $this->_getContentParser();
-            $parser->process();
-
-        } elseif($this->_detailLevel === self::DETAIL_LEVEL_ONLY_XOBJECT) {
-            // process only the images
-
-            // get all the images
-            $resultCount = \preg_match_all('~/(\S*)\s+Do~i', $this->_stream, $result);
-
-            // make sure that we found any image
-            if ($resultCount === 0) {
-                return $this->_result;
-            }
-
-            // iterate through the images
-            foreach ($result[1] as $xObject) {
-                // change the format of the image to one that self::_onFormXObject() accepts
-                $xObject = [new \SetaPDF_Core_Type_Name($xObject, true)];
-
-                // create a new image xObject
-                $this->_onFormXObject($xObject, '');
-            }
-        } else {
-            throw new \BadMethodCallException('Unknown detail level.');
-        }
+        // parse the content stream
+        $parser = $this->_getContentParser();
+        $parser->process();
 
         // return the stored images
         return $this->_result;
@@ -219,8 +178,7 @@ class ImageProcessor
                 );
             }
 
-            $processor = new self($stream, $resources, $gs);
-            $processor->setDetailLevel($this->_detailLevel);
+            $processor = new self($stream, $this->_switchWidthAndHeight, $resources, $gs);
 
             foreach ($processor->process() AS $image) {
                 $this->_result[] = $image;
@@ -242,17 +200,6 @@ class ImageProcessor
                 return;
             }
 
-            // we only need the image
-            if ($this->_detailLevel === self::DETAIL_LEVEL_ONLY_XOBJECT) {
-                // add the new image
-                $this->_result[] = [
-                    'type' => 'xObject',
-                    'xObject' => $xObject,
-                    'isMask' => $isMask
-                ];
-                return;
-            }
-
             // we have an image object, calculate its outer points in user space
             $gs = $this->getGraphicState();
             $ll = $gs->toUserSpace(new \SetaPDF_Core_Geometry_Vector(0, 0, 1));
@@ -261,41 +208,107 @@ class ImageProcessor
             $lr = $gs->toUserSpace(new \SetaPDF_Core_Geometry_Vector(1, 0, 1));
 
             // ...and match some further information
-            $this->_result[] = [
-                'type' => 'xObject',
-                'll' => $ll->toPoint(),
-                'ul' => $ul->toPoint(),
-                'ur' => $ur->toPoint(),
-                'lr' => $lr->toPoint(),
-                'width' => $ur->subtract($ll)->getX(),
-                'height' => $ur->subtract($ll)->getY(),
-                'resolutionX' => $xObject->getWidth() / $ur->subtract($ll)->getX() * 72,
-                'resolutionY' => $xObject->getHeight() / $ur->subtract($ll)->getY() * 72,
-                'pixelWidth' => $xObject->getWidth(),
-                'pixelHeight' => $xObject->getHeight(),
-                'xObject' => $xObject,
-                'isMask' => $isMask
-            ];
+            $result = $this->_getNewResult($xObject->getWidth(), $xObject->getHeight());
+            $result['type'] = 'xObject';
+            $result['xObject'] = $xObject;
+            $result['isMask'] = $isMask;
+            $this->_result[] = $result;
         }
+    }
+
+    /**
+     * Helper method to create a result entry.
+     *
+     * @param numeric $pixelWidth
+     * @param numeric $pixelHeight
+     * @return array
+     */
+    protected function _getNewResult($pixelWidth, $pixelHeight)
+    {
+        // we have an image object, calculate it's outer points in user space
+        $gs = $this->getGraphicState();
+        $ll = $gs->toUserSpace(new \SetaPDF_Core_Geometry_Vector(0, 0, 1));
+        $ul = $gs->toUserSpace(new \SetaPDF_Core_Geometry_Vector(0, 1, 1));
+        $ur = $gs->toUserSpace(new \SetaPDF_Core_Geometry_Vector(1, 1, 1));
+        $lr = $gs->toUserSpace(new \SetaPDF_Core_Geometry_Vector(1, 0, 1));
+
+        // ...and match some further information
+        $width  = \abs($this->_switchWidthAndHeight ? $ur->subtract($ll)->getY() : $ur->subtract($ll)->getX());
+        $height = \abs($this->_switchWidthAndHeight ? $ur->subtract($ll)->getX() : $ur->subtract($ll)->getY());
+
+        return [
+            'll' => $ll->toPoint(),
+            'ul' => $ul->toPoint(),
+            'ur' => $ur->toPoint(),
+            'lr' => $lr->toPoint(),
+            'width' => $width,
+            'height' => $height,
+            'resolutionX' => $pixelWidth / $width * 72,
+            'resolutionY' => $pixelHeight / $height * 72,
+            'pixelWidth' => $pixelWidth,
+            'pixelHeight' => $pixelHeight
+        ];
     }
 
     /**
      * Callback for inline image operator
      *
-     * @param array $arguments
-     * @param string $operator
      * @return false|void
+     * @throws \SetaPDF_Core_Exception
+     * @throws \SetaPDF_Core_Parser_Pdf_InvalidTokenException
      */
-    public function _onInlineImage($arguments, $operator)
+    public function _onInlineImage()
     {
         $parser = $this->_contentParser->getParser();
+
+        $keyAbbr = [
+            'BPC' => 'BitsPerComponent',
+            'CS' => 'ColorSpace',
+            'D' => 'Decode',
+            'DP' => 'DecodeParms',
+            'F' => 'Filter',
+            'H' => 'Height',
+            'IM' => 'ImageMask',
+            'I' => 'Interpolate',
+            'W' => 'Width'
+        ];
+
+        $csAbbr = [
+            'G' => new \SetaPDF_Core_Type_Name('DeviceGray', true),
+            'RGB' => new \SetaPDF_Core_Type_Name('DeviceRGB', true),
+            'CMYK' => new \SetaPDF_Core_Type_Name('DeviceCMYK', true),
+            'I' => new \SetaPDF_Core_Type_Name('Indexed', true),
+        ];
+
+        $data = new \SetaPDF_Core_Type_Dictionary();
+        while (true) {
+            $key = $parser->readValue();
+            if (!$key || $key->value === 'ID') {
+                break;
+            }
+
+            $value = $parser->readValue();
+            if (!$value) {
+                break;
+            }
+
+            $key = $parser->convertToObject($key);
+
+            $name = $keyAbbr[$key->getValue()] ?? \SetaPDF_Core_Type_Name::ensureType($key)->getValue();
+            $value = $parser->convertToObject($value);
+            if ($name === 'ColorSpace') {
+                $value = $csAbbr[$value->getValue()] ?? $value;
+            }
+
+            $data[$name] = $value;
+        }
+
         $reader = $parser->getReader();
+        $reader->readByte(); // skip space after ID token. TODO: How does ASCIIHexDecode works here?
 
         $pos = $reader->getPos();
         $offset = $reader->getOffset();
 
-        // skip over inline images to increase speed
-        // todo implement inline images instead
         while (
             (\preg_match(
                 '/EI[\x00\x09\x0A\x0C\x0D\x20]/',
@@ -309,6 +322,18 @@ class ImageProcessor
             }
         }
 
+        $streamData = substr($reader->getBuffer(), 0, $m[0][1]);
         $parser->reset($pos + $offset + $m[0][1] + strlen($m[0][0]));
+
+        $stream = new \SetaPDF_Core_Type_Stream($data, $streamData);
+
+        $pixelWidth = (int)\SetaPDF_Core_Type_Dictionary_Helper::getValue($data, 'Width', 0, true);
+        $pixelHeight = (int)\SetaPDF_Core_Type_Dictionary_Helper::getValue($data, 'Height', 0, true);
+        $result = $this->_getNewResult($pixelWidth, $pixelHeight);
+        $result['type'] = 'inlineImage';
+        $result['isMask'] = \SetaPDF_Core_Type_Dictionary_Helper::getValue($data, 'ImageMask', false, true);
+        $result['stream'] = $stream;
+
+        $this->_result[] = $result;
     }
 }
