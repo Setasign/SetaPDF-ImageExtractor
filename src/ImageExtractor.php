@@ -51,10 +51,8 @@ class ImageExtractor
     public static function getImagesByPage(
         \SetaPDF_Core_Document_Page $page,
         int $detailLevel = ImageProcessor::DETAIL_LEVEL_ONLY_XOBJECT
-    ): array
-    {
+    ): array {
         $ressources = $page->getCanvas()->getResources(true);
-
         // make sure that there are xObjects
         if ($ressources === false) {
             return [];
@@ -488,7 +486,7 @@ class ImageExtractor
          * This is already applied
          * Tiff6.pdf Page: 52
          */
-        $blackLs1 = 0;
+        $blackIs1 = false;
         $damagedRowsBeforeError = 0;
 
         if ($decodeParam instanceof \SetaPDF_Core_Type_Dictionary) {
@@ -496,7 +494,7 @@ class ImageExtractor
             $encodedByteAlign = DictionaryHelper::getValue($decodeParam, 'EncodedByteAlign', $encodedByteAlign, true);
             $columns = DictionaryHelper::getValue($decodeParam, 'Columns', $columns, true);
             $rows = DictionaryHelper::getValue($decodeParam, 'Rows', $rows, true);
-            $blackLs1 = DictionaryHelper::getValue($decodeParam, 'Blackls1', $blackLs1, true);
+            $blackIs1 = DictionaryHelper::getValue($decodeParam, 'BlackIs1', $blackIs1, true);
             $damagedRowsBeforeError = DictionaryHelper::getValue($decodeParam, 'DamagedRowsBeforeError', $damagedRowsBeforeError, true);
         }
 
@@ -537,9 +535,7 @@ class ImageExtractor
         );
 
         $head .= \pack('vvVV',
-            262, 4, 1, $blackLs1 ? 0 : 1    // 5. Tag #PhotometricInterpretation
-        // 0 = WhiteIsZero. For bilevel and grayscale images: 0 is imaged as white.
-        // 1 = BlackIsZero. For bilevel and grayscale images: 0 is imaged as black.
+            262, 4, 1, $blackIs1 ? 1 : 0    // 5. Tag #PhotometricInterpretation
         );
 
         $head .= \pack('vvVV',
