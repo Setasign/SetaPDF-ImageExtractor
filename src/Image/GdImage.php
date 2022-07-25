@@ -19,6 +19,20 @@ class GdImage extends AbstractImage
      */
     protected $_image;
 
+    public function __construct(
+        int $width,
+        int $height,
+        \SetaPDF_Core_ColorSpace $colorSpace,
+        ?array $decodeArray,
+        MaskInterface $mask = null
+    ) {
+        if (!\extension_loaded('gd')) {
+            throw new \Exception('GD is not installed.');
+        }
+
+        parent::__construct($width, $height, $colorSpace, $decodeArray, $mask);
+    }
+
     /**
      * Returns if an image blob can be read by gd
      *

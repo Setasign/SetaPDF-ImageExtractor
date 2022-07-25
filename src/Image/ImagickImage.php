@@ -64,8 +64,8 @@ class ImagickImage extends AbstractImage
         MaskInterface $mask = null
     ) {
         // checking for existance of Imagick
-        if (!class_exists(\Imagick::class)) {
-            throw new \Exception('No imagick class found');
+        if (!\extension_loaded('imagick')) {
+            throw new \Exception('Imagick is not installed.');
         }
 
         parent::__construct($width, $height, $colorSpace, $decodeArray, $mask);
