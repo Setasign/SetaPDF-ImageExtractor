@@ -25,6 +25,7 @@ class ImageProcessor
      * The constructor.
      *
      * @param string $contentStream
+     * @param bool $switchWidthAndHeight
      * @param \SetaPDF_Core_Type_Dictionary $resources
      * @param \SetaPDF_Core_Canvas_GraphicState|null $graphicState
      */
@@ -193,9 +194,6 @@ class ImageProcessor
                 // We don't need ImageMask images (they are really used by some strange PDF generation tools)
                 $xObjectDict = \SetaPDF_Core_Type_Stream::ensureType($xObject->getIndirectObject())->getValue();
                 $isMask = \SetaPDF_Core_Type_Dictionary_Helper::getValue($xObjectDict, 'ImageMask', false, true);
-//                if ($isMask) {
-//                    return;
-//                }
             } catch (\SetaPDF_Core_Type_Exception $e) {
                 return;
             }
