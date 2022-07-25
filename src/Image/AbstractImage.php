@@ -294,15 +294,15 @@ abstract class AbstractImage implements MaskInterface
         // prepare the result (write the left pixels)
         $this->_prepareResult();
 
+        // negate the image when needed
+        if ($this->getNegated()) {
+            $this->_negate();
+        }
+
         // apply a mask if the image mask shouldn't be read pixel by pixel
         if ($this->_isReadingPixelByPixel === false) {
             $this->_currentColor = null;
             $this->_applyMask();
-        }
-
-        // negate the image when needed
-        if ($this->getNegated()) {
-            $this->_negate();
         }
     }
 
@@ -371,10 +371,10 @@ abstract class AbstractImage implements MaskInterface
      * @param int $color
      * @return int
      */
-    protected function _applyDecodeArray($key, $color)
+    protected function _applyDecodeArray($key, $color): int
     {
         // calculate the resulting color
-        $result = $this->_decodeArray[$key]['min'] + ($color * $this->_decodeArray[$key]['calculated']);
+        $result = (int)($this->_decodeArray[$key]['min'] + ($color * $this->_decodeArray[$key]['calculated']));
 
         // make sure that its between 1 and 255
         if ($result < 0 ) {
