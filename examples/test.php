@@ -3,9 +3,11 @@
 declare(strict_types=1);
 
 use setasign\SetaPDF\ImageExtractor\ImageExtractor;
-use setasign\SetaPDF\ImageExtractor\ImageProcessor;
 
 set_time_limit(180);
+ini_set('display_errors', '1');
+ini_set('display_startup_errors', '1');
+error_reporting(E_ALL);
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
@@ -40,7 +42,16 @@ $totalTimeGD = 0;
 $document = SetaPDF_Core_Document::loadByFilename($_GET['f']);
 $pageCount = $document->getCatalog()->getPages()->count();
 
-echo '<table bgcolor="#adff2f" border="1"><th><tr><td>Image data</td><td>Output GD</td><td>GD image</td><td>Output IM</td><td>IM image</td></tr></th>';
+echo '<table bgcolor="#adff2f" border="1">'
+    . '<th><tr>'
+    . '<td>Page#</td>'
+    . '<td>Image data</td>'
+    . '<td>Image dictionary</td>'
+    . '<td>Output GD</td>'
+    . '<td>GD image</td>'
+    . '<td>Output Imagick</td>'
+    . '<td>Imagick image</td>'
+    . '</tr></th>';
 
 $imageCount = 0;
 $totalStartTime = microtime(true);
@@ -73,18 +84,28 @@ for ($pageNo = 1; $pageNo <= $pageCount; $pageNo++) {
 
         $imageCount++;
 
-        echo '<tr><td colspan="6">memory: ' . memory_get_usage() . '</td></tr>';
-
-        $im = null;
-        $gd = null;
-        $image = null;
+//        echo '<tr><td colspan="7">memory: ' . memory_get_usage() . '</td></tr>';
 
         echo '<tr>';
+        echo '<td>' . $pageNo . '</td>';
         echo '<td><pre>' . var_export($printableImageData, true) . '</pre></td>';
+
         echo '<td>';
+        echo '<pre>';
+        if ($imageData['type'] === 'xObject') {
+            var_dump($xObject->getIndirectObject()->ensure()->getValue()->toPhp());
+        } else {
+            var_dump($imageData['stream']->getValue()->toPhp());
+        }
+        echo '</pre>';
+        echo '</td>';
+
+
+        echo '<td>';
+        $image = null;
         try {
             $startTime = microtime(true);
-            $gd = ImageExtractor::toImage($imageData, ImageExtractor::GD);
+            $gd = ImageExtractor::toImage($imageData, ImageExtractor::IMAGE_RENDERER_GD);
             $timeNeeded = (microtime(true) - $startTime);
             $totalTimeGD += $timeNeeded;
             echo 'finished in: ' . $timeNeeded;
@@ -94,7 +115,7 @@ for ($pageNo = 1; $pageNo <= $pageCount; $pageNo++) {
             $image = ob_get_clean();
             imagedestroy($gd);
             unset($gd);
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             echo $e;
         }
 
@@ -107,7 +128,7 @@ for ($pageNo = 1; $pageNo <= $pageCount; $pageNo++) {
         $image = null;
         try {
             $startTime = microtime(true);
-            $im = ImageExtractor::toImage($imageData, ImageExtractor::IMAGICK);
+            $im = ImageExtractor::toImage($imageData, ImageExtractor::IMAGE_RENDERER_IMAGICK);
             $timeNeeded = (microtime(true) - $startTime);
             $totalTimeIm += $timeNeeded;
             echo 'finished in: ' . $timeNeeded;
@@ -123,24 +144,6 @@ for ($pageNo = 1; $pageNo <= $pageCount; $pageNo++) {
         if ($image) {
             echo '<img src="data:image/png;base64,' . base64_encode($image) . '"/>';
         }
-        echo '</td>';
-
-        // extra information
-        echo '<td>' . $pageNo . '</td>';
-        echo '<td>';
-        if ($imageData['type'] === 'xObject') {
-            echo $xObjectId;
-        }
-        echo '</td>';
-
-        echo '<td>';
-        echo '<pre>';
-        if ($imageData['type'] === 'xObject') {
-            var_dump($xObject->getIndirectObject()->ensure()->getValue()->toPhp());
-        } else {
-            var_dump($imageData['stream']->getValue()->toPhp());
-        }
-        echo '</pre>';
         echo '</td>';
 
 //        try {
