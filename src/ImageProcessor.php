@@ -23,6 +23,7 @@ class ImageProcessor
     protected array $_result = [];
 
     protected int $_detailLevel = self::DETAIL_LEVEL_ONLY_XOBJECT;
+    protected bool $_switchWidthAndHeight = false;
 
     /**
      * The constructor.
