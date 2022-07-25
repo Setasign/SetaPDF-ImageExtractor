@@ -268,44 +268,37 @@ class ImagickImage extends AbstractImage
 
         // prepare the mask
         if (!$this->_mask instanceof ImagickImage) {
-            // we dont have an ImImage, so we cant get the Imagick instance directly
-            $imagick = new \Imagick();
+            // we don't have an ImImage, so we can't get the Imagick instance directly
+            $maskImage = new \Imagick();
             if ($this->_mask->canOutputBlob()) {
                 // when we can output a blob, read the blob
-                $imagick->readImageBlob($this->_mask->getBlob($this));
+                $maskImage->readImageBlob($this->_mask->getBlob($this));
             } else {
                 // otherwise import the image pixel by pixel to Imagick
                 for ($y = 0; $y <= $this->getHeight(); $y++) {
                     for ($x = 0; $x <= $this->getWidth(); $x++) {
-                        $imagick->importImagePixels($x, $y, 1, 1, 'I', \Imagick::PIXEL_CHAR, [$this->_mask->getCorrespondingAlphaValue($x, $y, $this)]);
+                        $maskImage->importImagePixels(
+                            $x,
+                            $y,
+                            1,
+                            1,
+                            'I',
+                            \Imagick::PIXEL_CHAR,
+                            [$this->_mask->getCorrespondingAlphaValue($x, $y, $this)]
+                        );
                     }
                 }
             }
         } else {
             // get the imagick instance
-            $imagick = $this->_mask->getResult();
+            $maskImage = $this->_mask->getResult();
         }
 
-        // make sure that everyting is right
-        if (isset($imagick) && $imagick instanceof \Imagick) {
-            $pixels = $imagick->exportImagePixels(0, 0, $this->_width, $this->_height, 'I', \Imagick::PIXEL_CHAR);
+        // Copy opacity mask
+        if (isset($maskImage) && $maskImage instanceof \Imagick) {
+            $maskImage->setImageMatte(false);
+            $this->_image->compositeImage($maskImage, \Imagick::COMPOSITE_COPYOPACITY, 0, 0);
         }
-
-        // when we have no pixels to import
-        if (!isset($pixels)) {
-            throw new \Exception('mask could not be imported');
-        }
-
-        // try to import pixels
-        $this->_image->importImagePixels(
-            0,
-            0,
-            $this->_width,
-            $this->_height,
-            'A',
-            \Imagick::PIXEL_CHAR,
-            $pixels
-        );
     }
 
     /**
