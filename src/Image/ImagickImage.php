@@ -140,10 +140,29 @@ class ImagickImage extends AbstractImage
             $this->setNegated(true);
         }
 
-        // iterate through all the pixels and the the alpha value to 255, so the images have no transparent background
+        $this->_applyDecodeArrayNegate();
+
+//      Maybe we can apply the decode array manually:
+//
+//        $m = ???;
+//        $this->_image->colorMatrixImage($m);
+
+//        or:
+
+//      Problem here is, that IM always uses RGBA but the Decode array depends on the color space components count.
 //        for ($x = 0; $x < $this->_width; $x++) {
 //            for ($y = 0; $y < $this->_height; $y++) {
-//                $this->_image->importImagePixels($x, $y, 1, 1, 'A', \Imagick::PIXEL_CHAR, array(255));
+//                $pixelColor = $this->_image->getImagePixelColor($x, $y);
+//                $colors = $pixelColor->getColor(2);
+//                $translate = [
+//                    'r' => [0, \Imagick::COLOR_RED],
+//                    'g' => [1, \Imagick::COLOR_GREEN],
+//                    'b' => [2, \Imagick::COLOR_BLUE],
+//                    'a' => [3, \Imagick::COLOR_ALPHA],
+//                ];
+//                foreach ($colors as $k => $color) {
+//                    $pixelColor->setColorValue($translate[$k][1], $this->_applyDecodeArray($translate[$k][0], $color));
+//                }
 //            }
 //        }
 
@@ -152,8 +171,8 @@ class ImagickImage extends AbstractImage
     }
 
     /**
-     * Adds an pixel to the image,
-     * note the you need to call self::_getColor() to get the corresponding color from $color
+     * Adds a pixel to the image,
+     * note then you need to call self::_getColor() to get the corresponding color from $color
      *
      * @param string $color
      * @return void

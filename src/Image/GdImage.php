@@ -64,13 +64,15 @@ class GdImage extends AbstractImage
             throw new \Exception('Image could not be created from ' . get_class($this));
         }
 
+        $this->_applyDecodeArrayNegate();
+
         // store the image resource
         $this->_image = $_image;
     }
 
     /**
-     * Adds an pixel to the image,
-     * note the you need to call self::_getColor() to get the corresponding color from $color
+     * Adds a pixel to the image,
+     * note then you need to call self::_getColor() to get the corresponding color from $color
      *
      * @param string $color
      */

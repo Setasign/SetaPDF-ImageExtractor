@@ -294,7 +294,7 @@ abstract class AbstractImage implements MaskInterface
         // prepare the result (write the left pixels)
         $this->_prepareResult();
 
-        // apply an mask if the image mask shouldnt be read pixel by pixel
+        // apply a mask if the image mask shouldn't be read pixel by pixel
         if ($this->_isReadingPixelByPixel === false) {
             $this->_currentColor = null;
             $this->_applyMask();
@@ -365,13 +365,13 @@ abstract class AbstractImage implements MaskInterface
     }
 
     /**
-     * Applies a decode array
+     * Applies a decode array.
      *
      * @param int $key
      * @param int $color
      * @return int
      */
-    private function _applyDecodeArray($key, $color)
+    protected function _applyDecodeArray($key, $color)
     {
         // calculate the resulting color
         $result = $this->_decodeArray[$key]['min'] + ($color * $this->_decodeArray[$key]['calculated']);
@@ -384,6 +384,39 @@ abstract class AbstractImage implements MaskInterface
         }
 
         return $result;
+    }
+
+
+    /**
+     * Applies a decode array
+     *
+     * @return void
+     */
+    protected function _applyDecodeArrayNegate()
+    {
+        if (!\is_array($this->_decodeArray)) {
+            return;
+        }
+
+        // apply simple Decode arrays for negation
+        if (
+            (count($this->_decodeArray) === 1 && $this->_decodeArray[0]['min'] === 1 && $this->_decodeArray[0]['max'] === 0)
+            || (count($this->_decodeArray) === 3
+                && $this->_decodeArray[0]['min'] === 1 && $this->_decodeArray[0]['max'] === 0
+                && $this->_decodeArray[1]['min'] === 1 && $this->_decodeArray[1]['max'] === 0
+                && $this->_decodeArray[2]['min'] === 1 && $this->_decodeArray[2]['max'] === 0
+            )
+            || (count($this->_decodeArray) === 4
+                && $this->_decodeArray[0]['min'] === 1 && $this->_decodeArray[0]['max'] === 0
+                && $this->_decodeArray[1]['min'] === 1 && $this->_decodeArray[1]['max'] === 0
+                && $this->_decodeArray[2]['min'] === 1 && $this->_decodeArray[2]['max'] === 0
+                && $this->_decodeArray[3]['min'] === 1 && $this->_decodeArray[3]['max'] === 0
+            )
+        ) {
+            $this->setNegated(!$this->_negated);
+        } else {
+            throw new \Exception('Applying of Decode array is currently not supported.');
+        }
     }
 
     /**
