@@ -234,9 +234,9 @@ class ImageProcessor
                 // We don't need ImageMask images (they are really used by some strange PDF generation tools)
                 $xObjectDict = \SetaPDF_Core_Type_Stream::ensureType($xObject->getIndirectObject())->getValue();
                 $isMask = \SetaPDF_Core_Type_Dictionary_Helper::getValue($xObjectDict, 'ImageMask', false, true);
-                if ($isMask) {
-                    return;
-                }
+//                if ($isMask) {
+//                    return;
+//                }
             } catch (\SetaPDF_Core_Type_Exception $e) {
                 return;
             }
@@ -245,7 +245,9 @@ class ImageProcessor
             if ($this->_detailLevel === self::DETAIL_LEVEL_ONLY_XOBJECT) {
                 // add the new image
                 $this->_result[] = [
-                    'xObject' => $xObject
+                    'type' => 'xObject',
+                    'xObject' => $xObject,
+                    'isMask' => $isMask
                 ];
                 return;
             }
@@ -259,6 +261,7 @@ class ImageProcessor
 
             // ...and match some further information
             $this->_result[] = [
+                'type' => 'xObject',
                 'll' => $ll->toPoint(),
                 'ul' => $ul->toPoint(),
                 'ur' => $ur->toPoint(),
@@ -269,7 +272,8 @@ class ImageProcessor
                 'resolutionY' => $xObject->getHeight() / $ur->subtract($ll)->getY() * 72,
                 'pixelWidth' => $xObject->getWidth(),
                 'pixelHeight' => $xObject->getHeight(),
-                'xObject' => $xObject
+                'xObject' => $xObject,
+                'isMask' => $isMask
             ];
         }
     }
@@ -289,6 +293,8 @@ class ImageProcessor
         $pos = $reader->getPos();
         $offset = $reader->getOffset();
 
+        // skip over inline images to increase speed
+        // todo implement inline images instead
         while (
             (\preg_match(
                 '/EI[\x00\x09\x0A\x0C\x0D\x20]/',

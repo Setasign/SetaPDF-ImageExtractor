@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use setasign\SetaPDF\ImageExtractor\ImageExtractor;
+use setasign\SetaPDF\ImageExtractor\ImageProcessor;
 
 set_time_limit(180);
 
@@ -39,15 +40,22 @@ $totalTimeGD = 0;
 $document = SetaPDF_Core_Document::loadByFilename($_GET['f']);
 $pageCount = $document->getCatalog()->getPages()->count();
 
-echo '<table bgcolor="#adff2f" border="1"><th><tr><td>Output GD</td><td>GD image</td><td>Output IM</td><td>IM image</td></tr></th>';
+echo '<table bgcolor="#adff2f" border="1"><th><tr><td>Image data</td><td>Output GD</td><td>GD image</td><td>Output IM</td><td>IM image</td></tr></th>';
 
 $imageCount = 0;
 $totalStartTime = microtime(true);
 
+$detailLevel = ImageProcessor::DETAIL_LEVEL_FULL;
+$skipMask = false;
+
 for ($pageNo = 1; $pageNo <= $pageCount; $pageNo++) {
-    $images = ImageExtractor::getImagesByPageNo($document, $pageNo, \setasign\SetaPDF\ImageExtractor\ImageProcessor::DETAIL_LEVEL_FULL);
+    $images = ImageExtractor::getImagesByPageNo($document, $pageNo, $detailLevel);
 
     foreach ($images as $imageData) {
+        if ($skipMask && $imageData['mask'] ?? false) {
+            continue;
+        }
+
         /**
          * @var $xObject SetaPDF_Core_XObject_Image
          */
@@ -56,13 +64,20 @@ for ($pageNo = 1; $pageNo <= $pageCount; $pageNo++) {
 
         $imageCount++;
 
-        echo '<tr><td colspan="6">' . memory_get_usage() . '</td></tr>';
+        echo '<tr><td colspan="6">memory: ' . memory_get_usage() . '</td></tr>';
 
         $im = null;
         $gd = null;
         $image = null;
 
         echo '<tr>';
+
+        $printableImageData = $imageData;
+        $printableImageData['xObject'] = [
+            'id' => $xObjectId,
+            'gen' => $xObject->getIndirectObject()->getGen()
+        ];
+        echo '<td><pre>' . var_export($printableImageData, true) . '</pre></td>';
         echo '<td>';
         try {
             $startTime = microtime(true);
@@ -97,7 +112,7 @@ for ($pageNo = 1; $pageNo <= $pageCount; $pageNo++) {
             $image = $im->getImageBlob();
             $im->destroy();
             unset($im);
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             echo $e->getMessage();
         }
 
@@ -107,10 +122,7 @@ for ($pageNo = 1; $pageNo <= $pageCount; $pageNo++) {
         }
         echo '</td>';
 
-
-
-        // extra informations
-
+        // extra information
         echo '<td>' . $pageNo . '</td>';
         echo '<td>' . $xObjectId . '</td>';
 
@@ -122,8 +134,7 @@ for ($pageNo = 1; $pageNo <= $pageCount; $pageNo++) {
 
         try {
             echo '<td>' . $xObject->getColorSpace()->getFamily() . '</td>';
-        } catch (Exception $e) {
-
+        } catch (Throwable $e) {
         }
 
         echo '</tr>';
