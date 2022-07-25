@@ -24,7 +24,6 @@ class ImageExtractor
      *
      * @param \SetaPDF_Core_Document $document
      * @param int $pageNo
-     * @param int $detailLevel
      * @return array
      * @throws \SetaPDF_Core_Exception
      * @throws \SetaPDF_Core_Type_Exception
@@ -32,25 +31,22 @@ class ImageExtractor
      */
     public static function getImagesByPageNo(
         \SetaPDF_Core_Document $document,
-        int $pageNo,
-        int $detailLevel = ImageProcessor::DETAIL_LEVEL_ONLY_XOBJECT
+        int $pageNo
     ): array {
         $page = $document->getCatalog()->getPages()->getPage($pageNo);
-        return self::getImagesByPage($page, $detailLevel);
+        return self::getImagesByPage($page);
     }
 
     /**
      * Get the Image-xObjects used on a page.
      *
      * @param \SetaPDF_Core_Document_Page $page
-     * @param int $detailLevel
      * @return array
      * @throws \SetaPDF_Core_Type_Exception
      * @throws \SetaPDF_Exception_NotImplemented
      */
     public static function getImagesByPage(
-        \SetaPDF_Core_Document_Page $page,
-        int $detailLevel = ImageProcessor::DETAIL_LEVEL_ONLY_XOBJECT
+        \SetaPDF_Core_Document_Page $page
     ): array {
         $ressources = $page->getCanvas()->getResources(true);
         // make sure that there are xObjects
@@ -58,9 +54,8 @@ class ImageExtractor
             return [];
         }
 
-        // create a new ImageProcessor and set the detail level
-        $imageProcessor = new ImageProcessor($page->getCanvas()->getStream(), $ressources);
-        $imageProcessor->setDetailLevel($detailLevel);
+        // create a new ImageProcessor
+        $imageProcessor = new ImageProcessor($page->getCanvas()->getStream(), ($page->getRotation() / 90) % 2 > 0, $ressources);
 
         // process all the data
         $data = $imageProcessor->process();
@@ -71,18 +66,20 @@ class ImageExtractor
         return $data;
     }
 
-    /**
-     * Converts an xObject to a real image object.
-     *
-     * @param \SetaPDF_Core_XObject_Image $xObject
-     * @param int $resultType
-     * @return mixed
-     * @throws \SetaPDF_Exception_NotImplemented
-     */
-    public static function xObjectToImage(\SetaPDF_Core_XObject_Image $xObject, int $resultType)
+    public static function toImage(array $imageData, int $resultType)
     {
+        if ($imageData['type'] === 'xObject') {
+            $stream = $imageData['xObject']->getIndirectObject();
+        } elseif ($imageData['type'] === 'inlineImage') {
+            $stream = $imageData['stream'];
+        } else {
+            throw new \InvalidArgumentException('Unknown data type.');
+        }
+
+        $stream = \SetaPDF_Core_Type_Stream::ensureType($stream);
+
         // start to process the image
-        $image = self::_processXObject($xObject, $resultType);
+        $image = self::_processStream($stream, $resultType);
 
         // clean the image and if SMask/Mask are available, clean them too
         $image->cleanUp();
@@ -91,38 +88,46 @@ class ImageExtractor
         return $image->getResult();
     }
 
+    public function xObjectToImage(\SetaPDF_Core_XObject_Image $xObject, int $resultType)
+    {
+        return self::toImage([
+            'type' => 'xObject',
+            'xObject' => $xObject
+        ], $resultType);
+    }
+
     /**
      * Processes all incoming images (including Masks and SMasks)
      *
-     * @param \SetaPDF_Core_XObject_Image $xObject
+     * @param \SetaPDF_Core_Type_Stream $stream
      * @param int $resultType
      * @return AbstractImage
      * @throws \Exception
      * @throws \SetaPDF_Exception_NotImplemented
      */
-    protected static function _processXObject(\SetaPDF_Core_XObject_Image $xObject, int $resultType)
+    protected static function _processStream(\SetaPDF_Core_Type_Stream $stream, int $resultType)
     {
         $_mask = null;
 
-        // get the stream
-        $xObjectStream = \SetaPDF_Core_Type_Stream::ensureType($xObject->getIndirectObject());
         // get the dictionary
-        $dict = $xObjectStream->getValue();
+        $dict = $stream->getValue();
 
         // get the width and height
-        $width = (int) $xObject->getWidth();
-        $height = (int) $xObject->getHeight();
+        $width = (int) \SetaPDF_Core_Type_Dictionary_Helper::getValue($dict, 'Width', 0, true);
+        $height = (int) \SetaPDF_Core_Type_Dictionary_Helper::getValue($dict, 'Height', 0, true);
 
         // decode the stream.
-        $decodedStream = static::_unfilterImage($dict, $xObjectStream, $remainingSupportedFilter);
+        $decodedStream = static::_unfilterImage($dict, $stream, $remainingSupportedFilter);
 
         // get the colorspace
-        $colorSpace = $xObject->getColorSpace();
+        $colorSpace = \SetaPDF_Core_ColorSpace::createByDefinition(
+            \SetaPDF_Core_Type_Dictionary_Helper::getValue($dict, 'ColorSpace', new \SetaPDF_Core_Type_Name('DeviceGray'))
+        );
 
         // get the number of components (the amount of different "color" channels)
         $numOfComponents = $colorSpace->getColorComponents();
         // get the bits per component
-        $bitsPerComponent = $xObject->getBitsPerComponent();
+        $bitsPerComponent = \SetaPDF_Core_Type_Dictionary_Helper::getValue($dict, 'BitsPerComponent', 1, true);
 
         if ($colorSpace instanceof SetaPDF_Core_ColorSpace_Indexed) {
             $defaultDecodeArray = $colorSpace->getDefaultDecodeArray($bitsPerComponent);
@@ -132,8 +137,8 @@ class ImageExtractor
 
         // check for an SMask (SMask has a higher priority than a normal mask)
         if ($dict->offsetExists('SMask')) {
-            $smask = \SetaPDF_Core_Type_IndirectReference::ensureType($dict->getValue('SMask'));
-            $_mask = static::_processXObject(\SetaPDF_Core_XObject::get($smask), $resultType);
+            $smask = \SetaPDF_Core_Type_Stream::ensureType(DictionaryHelper::getValue($dict, 'SMask'));
+            $_mask = static::_processStream($smask, $resultType);
         }
 
         // check for a Mask and make sure that no mask was found before.
@@ -146,7 +151,7 @@ class ImageExtractor
                 $_mask = new MaskArray($mask->toPhp());
             } elseif ($mask instanceof \SetaPDF_Core_Type_IndirectObjectInterface) {
                 // it's an image, so we need to process it
-                $_mask = static::_processXObject(\SetaPDF_Core_XObject::get($mask), $resultType);
+                $_mask = static::_processStream(\SetaPDF_Core_Type_Stream::ensureType($mask), $resultType);
             } else {
                 // we don't know what type of mask it is
                 throw new \Exception('The mask could not be extracted.');
@@ -424,11 +429,13 @@ class ImageExtractor
                     break;
 
                 case 'DCTDecode':
+                case 'DCT':
                 case 'JPXDecode':
                     $filterObject = null;
                     break;
 
                 case 'CCITTFaxDecode':
+                case 'CCF':
                     // No real decode is applied here, we are just adding a tiff header so that the image extractor
                     // can read it.
                     $filterObject = null;
@@ -503,10 +510,6 @@ class ImageExtractor
         }
 
         // from here on is the tiff header.
-        if (!$dict->offsetExists('ColorSpace')) {
-            $dict->offsetSet('ColorSpace', new \SetaPDF_Core_Type_Name('DeviceGray'));
-        }
-
         $numOfTags = 10;
 
         $head = \pack(
