@@ -366,7 +366,7 @@ class ImagickImage extends AbstractImage
      */
     protected function _negate(): void
     {
-        $this->_image->negateImage(false);
+        $this->_image->negateImage(false, \Imagick::CHANNEL_ALL - \Imagick::CHANNEL_ALPHA);
     }
 
     /**
