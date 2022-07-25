@@ -45,22 +45,31 @@ echo '<table bgcolor="#adff2f" border="1"><th><tr><td>Image data</td><td>Output 
 $imageCount = 0;
 $totalStartTime = microtime(true);
 
-$detailLevel = ImageProcessor::DETAIL_LEVEL_FULL;
 $skipMask = false;
 
 for ($pageNo = 1; $pageNo <= $pageCount; $pageNo++) {
-    $images = ImageExtractor::getImagesByPageNo($document, $pageNo, $detailLevel);
+    $images = ImageExtractor::getImagesByPageNo($document, $pageNo);
 
     foreach ($images as $imageData) {
         if ($skipMask && $imageData['mask'] ?? false) {
             continue;
         }
 
-        /**
-         * @var $xObject SetaPDF_Core_XObject_Image
-         */
-        $xObject = $imageData['xObject'];
-        $xObjectId = $xObject->getIndirectObject()->getObjectId();
+        if ($imageData['type'] === 'xObject') {
+            /**
+             * @var $xObject SetaPDF_Core_XObject_Image
+             */
+            $xObject = $imageData['xObject'];
+            $xObjectId = $xObject->getIndirectObject()->getObjectId();
+            $printableImageData = $imageData;
+            $printableImageData['xObject'] = [
+                'id' => $xObjectId,
+                'gen' => $xObject->getIndirectObject()->getGen()
+            ];
+        } else {
+            $printableImageData = $imageData;
+            unset($printableImageData['stream']);
+        }
 
         $imageCount++;
 
@@ -71,17 +80,11 @@ for ($pageNo = 1; $pageNo <= $pageCount; $pageNo++) {
         $image = null;
 
         echo '<tr>';
-
-        $printableImageData = $imageData;
-        $printableImageData['xObject'] = [
-            'id' => $xObjectId,
-            'gen' => $xObject->getIndirectObject()->getGen()
-        ];
         echo '<td><pre>' . var_export($printableImageData, true) . '</pre></td>';
         echo '<td>';
         try {
             $startTime = microtime(true);
-            $gd = ImageExtractor::xObjectToImage($xObject, ImageExtractor::GD);
+            $gd = ImageExtractor::toImage($imageData, ImageExtractor::GD);
             $timeNeeded = (microtime(true) - $startTime);
             $totalTimeGD += $timeNeeded;
             echo 'finished in: ' . $timeNeeded;
@@ -104,7 +107,7 @@ for ($pageNo = 1; $pageNo <= $pageCount; $pageNo++) {
         $image = null;
         try {
             $startTime = microtime(true);
-            $im = ImageExtractor::xObjectToImage($xObject, ImageExtractor::IMAGICK);
+            $im = ImageExtractor::toImage($imageData, ImageExtractor::IMAGICK);
             $timeNeeded = (microtime(true) - $startTime);
             $totalTimeIm += $timeNeeded;
             echo 'finished in: ' . $timeNeeded;
@@ -124,18 +127,26 @@ for ($pageNo = 1; $pageNo <= $pageCount; $pageNo++) {
 
         // extra information
         echo '<td>' . $pageNo . '</td>';
-        echo '<td>' . $xObjectId . '</td>';
+        echo '<td>';
+        if ($imageData['type'] === 'xObject') {
+            echo $xObjectId;
+        }
+        echo '</td>';
 
         echo '<td>';
         echo '<pre>';
-        var_dump($xObject->getIndirectObject()->ensure()->getValue()->toPhp());
+        if ($imageData['type'] === 'xObject') {
+            var_dump($xObject->getIndirectObject()->ensure()->getValue()->toPhp());
+        } else {
+            var_dump($imageData['stream']->getValue()->toPhp());
+        }
         echo '</pre>';
         echo '</td>';
 
-        try {
-            echo '<td>' . $xObject->getColorSpace()->getFamily() . '</td>';
-        } catch (Throwable $e) {
-        }
+//        try {
+//            echo '<td>' . $xObject->getColorSpace()->getFamily() . '</td>';
+//        } catch (Throwable $e) {
+//        }
 
         echo '</tr>';
     }
