@@ -16,8 +16,8 @@ use setasign\SetaPDF\ImageExtractor\Image\MaskArray;
  */
 class ImageExtractor
 {
-    public const GD = 0;
-    public const IMAGICK = 1;
+    public const IMAGE_RENDERER_GD = 0;
+    public const IMAGE_RENDERER_IMAGICK = 1;
 
     /**
      * Get the used Image-xObjects by a page number.
@@ -66,7 +66,7 @@ class ImageExtractor
         return $data;
     }
 
-    public static function toImage(array $imageData, int $resultType)
+    public static function toImage(array $imageData, int $imageRenderer)
     {
         if ($imageData['type'] === 'xObject') {
             $stream = $imageData['xObject']->getIndirectObject();
@@ -79,7 +79,7 @@ class ImageExtractor
         $stream = \SetaPDF_Core_Type_Stream::ensureType($stream);
 
         // start to process the image
-        $image = self::_processStream($stream, $resultType);
+        $image = self::_processStream($stream, $imageRenderer);
 
         // clean the image and if SMask/Mask are available, clean them too
         $image->cleanUp();
@@ -88,24 +88,24 @@ class ImageExtractor
         return $image->getResult();
     }
 
-    public function xObjectToImage(\SetaPDF_Core_XObject_Image $xObject, int $resultType)
+    public function xObjectToImage(\SetaPDF_Core_XObject_Image $xObject, int $imageRenderer)
     {
         return self::toImage([
             'type' => 'xObject',
             'xObject' => $xObject
-        ], $resultType);
+        ], $imageRenderer);
     }
 
     /**
      * Processes all incoming images (including Masks and SMasks)
      *
      * @param \SetaPDF_Core_Type_Stream $stream
-     * @param int $resultType
+     * @param int $imageRenderer
      * @return AbstractImage
      * @throws \Exception
      * @throws \SetaPDF_Exception_NotImplemented
      */
-    protected static function _processStream(\SetaPDF_Core_Type_Stream $stream, int $resultType)
+    protected static function _processStream(\SetaPDF_Core_Type_Stream $stream, int $imageRenderer)
     {
         $_mask = null;
 
@@ -138,7 +138,7 @@ class ImageExtractor
         // check for an SMask (SMask has a higher priority than a normal mask)
         if ($dict->offsetExists('SMask')) {
             $smask = \SetaPDF_Core_Type_Stream::ensureType(DictionaryHelper::getValue($dict, 'SMask'));
-            $_mask = static::_processStream($smask, $resultType);
+            $_mask = static::_processStream($smask, $imageRenderer);
         }
 
         // check for a Mask and make sure that no mask was found before.
@@ -151,7 +151,7 @@ class ImageExtractor
                 $_mask = new MaskArray($mask->toPhp());
             } elseif ($mask instanceof \SetaPDF_Core_Type_IndirectObjectInterface) {
                 // it's an image, so we need to process it
-                $_mask = static::_processStream(\SetaPDF_Core_Type_Stream::ensureType($mask), $resultType);
+                $_mask = static::_processStream(\SetaPDF_Core_Type_Stream::ensureType($mask), $imageRenderer);
             } else {
                 // we don't know what type of mask it is
                 throw new \Exception('The mask could not be extracted.');
@@ -184,12 +184,12 @@ class ImageExtractor
         }
 
         // create a new AbstractImage instance
-        if (self::GD === $resultType) {
+        if (self::IMAGE_RENDERER_GD === $imageRenderer) {
             $image = new GdImage($width, $height, $colorSpace, $decodeArray, $_mask);
-        } elseif (self::IMAGICK === $resultType) {
+        } elseif (self::IMAGE_RENDERER_IMAGICK === $imageRenderer) {
             $image = new ImagickImage($width, $height, $colorSpace, $decodeArray, $_mask);
         } else {
-            throw new \InvalidArgumentException('Image type ' . $resultType . ' is not supported.');
+            throw new \InvalidArgumentException('Image renderer ' . $imageRenderer . ' is not supported.');
         }
 
         // check if we have raw image data
