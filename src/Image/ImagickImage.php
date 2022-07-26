@@ -263,7 +263,7 @@ class ImagickImage extends AbstractImage
             $maskImage = new \Imagick();
             if ($this->_mask->canOutputBlob()) {
                 // when we can output a blob, read the blob
-                $maskImage->readImageBlob($this->_mask->getBlob($this));
+                $maskImage->readImageBlob($this->_mask->getBlob());
             } else {
                 // otherwise import the image pixel by pixel to Imagick
                 for ($y = 0; $y <= $this->getHeight(); $y++) {
@@ -366,10 +366,9 @@ class ImagickImage extends AbstractImage
     /**
      * Returns a blob representation of the image
      *
-     * @param AbstractImage $caller
      * @return string
      */
-    public function getBlob(AbstractImage $caller): string
+    public function getBlob(): string
     {
         return $this->_image->getImageBlob();
     }

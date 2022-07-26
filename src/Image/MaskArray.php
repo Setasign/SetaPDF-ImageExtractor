@@ -84,11 +84,10 @@ class MaskArray implements MaskInterface
     /**
      * Returns the image blob as a string
      *
-     * @param AbstractImage $caller
      * @throws \BadFunctionCallException
      * @return string
      */
-    public function getBlob(AbstractImage $caller): string
+    public function getBlob(): string
     {
         throw new \BadFunctionCallException();
     }

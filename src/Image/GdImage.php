@@ -282,10 +282,9 @@ class GdImage extends AbstractImage
     /**
      * Returns a blob representation of the image
      *
-     * @param AbstractImage $caller
      * @return string
      */
-    public function getBlob(AbstractImage $caller): string
+    public function getBlob(): string
     {
         ob_start();
         imagejpeg($this->_image);
