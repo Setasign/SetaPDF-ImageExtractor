@@ -116,7 +116,7 @@ for ($pageNo = 1; $pageNo <= $pageCount; $pageNo++) {
             imagedestroy($gd);
             unset($gd);
         } catch (Throwable $e) {
-            echo $e;
+            echo $e->getMessage();
         }
 
         echo '</td><td>';

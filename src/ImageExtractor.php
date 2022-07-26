@@ -287,7 +287,9 @@ class ImageExtractor
                     }
                 }
             } else {
-                throw new \SetaPDF_Exception_NotImplemented('Image is not supported yet (BitsPerComponent <> ' . $bitsPerComponent . '.)');
+                throw new \SetaPDF_Exception_NotImplemented(
+                    'Image is not supported yet (BitsPerComponent <> ' . $bitsPerComponent . '.)'
+                );
             }
 
             // clean up the stream to save memory

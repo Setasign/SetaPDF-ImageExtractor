@@ -417,7 +417,7 @@ abstract class AbstractImage implements MaskInterface
         ) {
             $this->setNegated(!$this->_negated);
         } else {
-            throw new \Exception('Applying of Decode array is currently not supported.');
+            throw new \SetaPDF_Exception_NotImplemented('Applying of Decode array is currently not supported.');
         }
     }
 
