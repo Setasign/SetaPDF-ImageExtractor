@@ -7,11 +7,14 @@ namespace setasign\SetaPDF\ImageExtractor\Image;
 /**
  * Class ImagickImage
  *
- * This class is used to convert a image in a pdf to a regular image.
+ * This class is used to convert an image in a pdf to a regular image.
  * It uses Imagick to create a new image.
  */
 class ImagickImage extends AbstractImage
 {
+    /**
+     * @var int Buffer size for writePixel() until the pixels are written to the image
+     */
     public static int $bufferSize = 8192;
 
     /**
@@ -60,7 +63,7 @@ class ImagickImage extends AbstractImage
     ) {
         // checking for existance of Imagick
         if (!\extension_loaded('imagick')) {
-            throw new \Exception('Imagick is not installed.');
+            throw new \BadMethodCallException('Imagick is not installed.');
         }
 
         parent::__construct($width, $height, $colorSpace, $decodeArray, $mask);

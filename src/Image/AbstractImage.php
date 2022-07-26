@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace setasign\SetaPDF\ImageExtractor\Image;
 
+use SetaPDF_Core_ColorSpace;
+
 /**
  * Class AbstractImage
  *
@@ -152,7 +154,7 @@ abstract class AbstractImage implements MaskInterface
      * @param bool $isMask
      * @return void
      */
-    public function cleanUp($isMask = false)
+    public function cleanUp(bool $isMask = false)
     {
         // process the left data
         $this->finalize();
@@ -180,7 +182,7 @@ abstract class AbstractImage implements MaskInterface
      * @return mixed
      * @throws \Exception
      */
-    protected function _getColor($color)
+    protected function _getColor(string $color)
     {
         // store the current color
         $this->_currentColor = $color;
@@ -251,7 +253,7 @@ abstract class AbstractImage implements MaskInterface
      * @param string $color
      * @return void
      */
-    public function addIndexedColor($index, $color)
+    public function addIndexedColor(int $index, string $color)
     {
         $this->_indexedColors[chr($index)] = $color;
     }
@@ -319,11 +321,11 @@ abstract class AbstractImage implements MaskInterface
     /**
      * Resolves the color component color space
      *
-     * @param $colorSpace
+     * @param SetaPDF_Core_ColorSpace $colorSpace
      * @return null|\SetaPDF_Core_ColorSpace|\SetaPDF_Core_ColorSpace_DeviceCmyk|\SetaPDF_Core_ColorSpace_DeviceGray|\SetaPDF_Core_ColorSpace_DeviceRgb|\SetaPDF_Core_ColorSpace_IccBased|\SetaPDF_Core_ColorSpace_Separation|string
      * @throws \SetaPDF_Exception_NotImplemented
      */
-    private function _resolveBaseColorSpace($colorSpace)
+    private function _resolveBaseColorSpace(SetaPDF_Core_ColorSpace $colorSpace)
     {
         if ($colorSpace instanceof \SetaPDF_Core_ColorSpace_IccBased) {
             // try to get the Alternate colorspace of the image
@@ -371,7 +373,7 @@ abstract class AbstractImage implements MaskInterface
      * @param int $color
      * @return int
      */
-    protected function _applyDecodeArray($key, $color): int
+    protected function _applyDecodeArray(int $key, int $color): int
     {
         // calculate the resulting color
         $result = (int)($this->_decodeArray[$key]['min'] + ($color * $this->_decodeArray[$key]['calculated']));

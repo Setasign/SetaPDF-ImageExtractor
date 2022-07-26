@@ -128,14 +128,14 @@ for ($pageNo = 1; $pageNo <= $pageCount; $pageNo++) {
         $image = null;
         try {
             $startTime = microtime(true);
-            $im = ImageExtractor::toImage($imageData, ImageExtractor::IMAGE_RENDERER_IMAGICK);
+            $imagick = ImageExtractor::toImage($imageData, ImageExtractor::IMAGE_RENDERER_IMAGICK);
             $timeNeeded = (microtime(true) - $startTime);
             $totalTimeIm += $timeNeeded;
             echo 'finished in: ' . $timeNeeded;
-            $im->setImageFormat('png');
-            $image = $im->getImageBlob();
-            $im->destroy();
-            unset($im);
+            $imagick->setImageFormat('png');
+            $image = $imagick->getImageBlob();
+            $imagick->destroy();
+            unset($imagick);
         } catch (Throwable $e) {
             echo $e->getMessage();
         }

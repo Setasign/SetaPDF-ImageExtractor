@@ -27,10 +27,30 @@ class GdImage extends AbstractImage
         MaskInterface $mask = null
     ) {
         if (!\extension_loaded('gd')) {
-            throw new \Exception('GD is not installed.');
+            throw new \BadMethodCallException('GD is not installed.');
         }
 
         parent::__construct($width, $height, $colorSpace, $decodeArray, $mask);
+    }
+
+    /**
+     * Gets called to get the image instance
+     * if there is no image instance available, will it create a new one
+     *
+     * @return resource
+     */
+    private function getImage()
+    {
+        if ($this->_image === null) {
+            $this->_image = imagecreatetruecolor($this->_width, $this->_height);
+
+            if ($this->_mask !== null) {
+                imagealphablending($this->_image, false);
+                imagesavealpha($this->_image, true);
+            }
+        }
+
+        return $this->_image;
     }
 
     /**
@@ -292,25 +312,5 @@ class GdImage extends AbstractImage
         ob_end_clean();
 
         return $result;
-    }
-
-    /**
-     * Gets called to get the image instance
-     * if there is no image instance available, will it create a new one
-     *
-     * @return resource
-     */
-    private function getImage()
-    {
-        if ($this->_image === null) {
-            $this->_image = imagecreatetruecolor($this->_width, $this->_height);
-
-            if ($this->_mask !== null) {
-                imagealphablending($this->_image, false);
-                imagesavealpha($this->_image, true);
-            }
-        }
-
-        return $this->_image;
     }
 }
