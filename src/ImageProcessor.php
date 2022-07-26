@@ -198,13 +198,6 @@ class ImageProcessor
                 return;
             }
 
-            // we have an image object, calculate its outer points in user space
-            $gs = $this->getGraphicState();
-            $ll = $gs->toUserSpace(new \SetaPDF_Core_Geometry_Vector(0, 0, 1));
-            $ul = $gs->toUserSpace(new \SetaPDF_Core_Geometry_Vector(0, 1, 1));
-            $ur = $gs->toUserSpace(new \SetaPDF_Core_Geometry_Vector(1, 1, 1));
-            $lr = $gs->toUserSpace(new \SetaPDF_Core_Geometry_Vector(1, 0, 1));
-
             // ...and match some further information
             $result = $this->_getNewResult($xObject->getWidth(), $xObject->getHeight());
             $result['type'] = 'xObject';
@@ -223,7 +216,7 @@ class ImageProcessor
      */
     protected function _getNewResult($pixelWidth, $pixelHeight)
     {
-        // we have an image object, calculate it's outer points in user space
+        // we have an image object, calculate its outer points in user space
         $gs = $this->getGraphicState();
         $ll = $gs->toUserSpace(new \SetaPDF_Core_Geometry_Vector(0, 0, 1));
         $ul = $gs->toUserSpace(new \SetaPDF_Core_Geometry_Vector(0, 1, 1));
