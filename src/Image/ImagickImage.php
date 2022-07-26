@@ -12,6 +12,8 @@ namespace setasign\SetaPDF\ImageExtractor\Image;
  */
 class ImagickImage extends AbstractImage
 {
+    public static int $bufferSize = 8192;
+
     /**
      * The imagick instance
      *
@@ -41,13 +43,6 @@ class ImagickImage extends AbstractImage
     protected string $_imMap = 'RGB';
 
     /**
-     * 80% of the maximal usage while constructing the class
-     *
-     * @var int|string
-     */
-    protected $_maxMemoryUsage;
-
-    /**
      * ImImage constructor.
      * @param int $width
      * @param int $height
@@ -72,10 +67,6 @@ class ImagickImage extends AbstractImage
 
         // create a new instance of Imagick
         $this->_image = new \Imagick();
-
-        // store the maxmal memory usage to know when we have to write without crashing php
-        // todo this whole logic should be changed to a configurable buffer size
-        $this->_maxMemoryUsage = $this->_getMaxMemoryUsage() * .8;
 
         // determine the Imagick color space
         if ($this->_baseColorSpace instanceof \SetaPDF_Core_ColorSpace_DeviceCmyk) {
@@ -193,7 +184,7 @@ class ImagickImage extends AbstractImage
             $this->_y++;
 
             // check for memory usage
-            if (memory_get_usage() >= $this->_maxMemoryUsage) {
+            if (count($this->_pixels) >= self::$bufferSize) {
                 // import all currently available pixels
                 $this->_image->importImagePixels(
                     0,
