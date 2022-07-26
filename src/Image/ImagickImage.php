@@ -393,33 +393,4 @@ class ImagickImage extends AbstractImage
     {
         return false;
     }
-
-    /**
-     * Returns the current max_memory usage in bytes
-     *
-     * @return int
-     * @throws \Exception
-     */
-    protected function _getMaxMemoryUsage()
-    {
-        $iniValue = ini_get('memory_limit');
-
-        $resultingValue = (int)substr($iniValue, 0, strlen($iniValue)-2);
-        $last = strtolower($iniValue[strlen($iniValue)-1]);
-        switch ($last) {
-            case 'g':
-                $resultingValue *= 1073741824;
-                break;
-            case 'm':
-                $resultingValue *= 1048576;
-                break;
-            case 'k':
-                $resultingValue *= 1024;
-                break;
-            default:
-                throw new \Exception('Maximal memory usage could not be determined');
-        }
-
-        return $resultingValue;
-    }
 }
