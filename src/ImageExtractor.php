@@ -326,7 +326,7 @@ class ImageExtractor
         // unset the left supported filter
         $remainingSupportedFilter = '';
         // get the stream
-        $rawStream = $stream->getStream(true);
+        $rawStream = $stream->getStream(false, true);
 
         // get the list of filters and convert them to a php array
         $filters = DictionaryHelper::getValue($dict, 'Filter');

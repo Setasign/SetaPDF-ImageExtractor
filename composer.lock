@@ -8,16 +8,25 @@
     "packages": [
         {
             "name": "setasign/setapdf-core",
-            "version": "2.40.0.1761",
+            "version": "2.47.0.2095",
             "dist": {
                 "type": "zip",
-                "url": "https://www.setasign.com/downloads/3889595/SetaPDF-Core_2.40.0.1761-without-demos.zip"
+                "url": "https://www.setasign.com/downloads/6953131/SetaPDF-Core_2.47.0.2095-without-demos.zip"
+            },
+            "require": {
+                "php": ">=7.1 <=8.4.99999"
             },
             "type": "library",
             "autoload": {
                 "psr-0": {
                     "SetaPDF_": "library/"
-                }
+                },
+                "psr-4": {
+                    "setasign\\SetaPDF2\\": "library/SetaPDF"
+                },
+                "files": [
+                    "library/SetaPDF/Autoload.php"
+                ]
             },
             "license": [
                 "proprietary"
@@ -25,7 +34,7 @@
             "support": {
                 "email": "support@setasign.com"
             },
-            "time": "2022-07-13T00:00:00+00:00"
+            "time": "2025-03-19T00:00:00+00:00"
         }
     ],
     "packages-dev": [],
@@ -38,5 +47,5 @@
         "php": ">=7.4"
     },
     "platform-dev": [],
-    "plugin-api-version": "2.3.0"
+    "plugin-api-version": "2.6.0"
 }
