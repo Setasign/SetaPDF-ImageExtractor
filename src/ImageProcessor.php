@@ -288,7 +288,12 @@ class ImageProcessor
             $name = $keyAbbr[$key->getValue()] ?? \SetaPDF_Core_Type_Name::ensureType($key)->getValue();
             $value = $parser->convertToObject($value);
             if ($name === 'ColorSpace') {
-                $value = $csAbbr[$value->getValue()] ?? $value;
+                if (isset($csAbbr[$value->getValue()])) {
+                    $value = $csAbbr[$value->getValue()];
+                } else {
+                    $colorSpaces = $this->_resources->getValue(\SetaPDF_Core_Resource::TYPE_COLOR_SPACE);
+                    $value = $colorSpaces->getValue($value->getValue());
+                }
             }
 
             $data[$name] = $value;
