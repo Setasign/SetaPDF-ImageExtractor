@@ -88,7 +88,7 @@ class ImageExtractor
         return $image->getResult();
     }
 
-    public function xObjectToImage(\SetaPDF_Core_XObject_Image $xObject, int $imageRenderer)
+    public static function xObjectToImage(\SetaPDF_Core_XObject_Image $xObject, int $imageRenderer)
     {
         return self::toImage([
             'type' => 'xObject',
