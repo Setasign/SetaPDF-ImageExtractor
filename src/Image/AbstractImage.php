@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace setasign\SetaPDF\ImageExtractor\Image;
 
 use SetaPDF_Core_ColorSpace;
+use setasign\SetaPDF2\Core\BitConverter;
 
 /**
  * Class AbstractImage
@@ -231,6 +232,7 @@ abstract class AbstractImage implements MaskInterface
                     // iterate through all the color space entries
                     for ($i = 0; $i < $this->_baseColorSpace->getColorComponents(); $i++) {
                         // apply the corresponding decode array on the color component
+                        // TODO: We need to support BPC and use e.g. this method: BitConverter::formatFromUInt($color[$i], $bpc);
                         $d = $this->_applyDecodeArray($i, ord($color[$i]));
                         // store it as the color component
                         $color[$i] = chr($d * 255);
@@ -376,16 +378,7 @@ abstract class AbstractImage implements MaskInterface
     protected function _applyDecodeArray(int $key, int $color): int
     {
         // calculate the resulting color
-        $result = (int)($this->_decodeArray[$key]['min'] + ($color * $this->_decodeArray[$key]['calculated']));
-
-        // make sure that its between 1 and 255
-        if ($result < 0 ) {
-            $result = 1;
-        } elseif ($result > 255) {
-            $result = 255;
-        }
-
-        return $result;
+        return (int)($this->_decodeArray[$key]['min'] + ($color * $this->_decodeArray[$key]['calculated']));
     }
 
 

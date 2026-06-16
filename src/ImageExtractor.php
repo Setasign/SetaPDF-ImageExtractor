@@ -176,8 +176,8 @@ class ImageExtractor
                     $decodeArray[$key]['max'] = $_decodeArray[$i + 1];
 
                     // already calculate the part of the decodeArray where the color values are not needed
-                    $decodeArray[$key]['calculated'] = (
-                        ($decodeArray[$key]['max'] - $decodeArray[$key]['min']) / (2 ** $bitsPerComponent) - 1
+                    $decodeArray[$key]['calculated'] = ( // internally we always have 8bit color values
+                        ($decodeArray[$key]['max'] - $decodeArray[$key]['min']) / ((2 ** \max(8, $bitsPerComponent)) - 1)
                     );
                 }
             }
