@@ -155,7 +155,8 @@ class ImageProcessor
         }
 
         $xObjects = \SetaPDF_Core_Type_Dictionary::ensureType($xObjects);
-        $xObject = \SetaPDF_Core_Type_IndirectReference::ensureType($xObjects->getValue($name->getValue()));
+        $resourceDictEntry = $xObjects->getValue($name->getValue());
+        $xObject = \SetaPDF_Core_Type_IndirectReference::ensureType($resourceDictEntry);
         $xObject = \SetaPDF_Core_XObject::get($xObject);
 
         if ($xObject instanceof \SetaPDF_Core_XObject_Form) {
@@ -201,6 +202,7 @@ class ImageProcessor
             // ...and match some further information
             $result = $this->_getNewResult($xObject->getWidth(), $xObject->getHeight());
             $result['type'] = 'xObject';
+            $result['resourceDictEntry'] = $resourceDictEntry;
             $result['xObject'] = $xObject;
             $result['isMask'] = $isMask;
             $this->_result[] = $result;
