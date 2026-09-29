@@ -42,7 +42,7 @@ abstract class AbstractImage implements MaskInterface
     protected int $_y = 0;
 
     /**
-     * Flag to check if the iamge alreay has been finalized
+     * Flag to check if the image already has been finalized
      *
      * @var bool
      */
@@ -131,7 +131,7 @@ abstract class AbstractImage implements MaskInterface
         int $height,
         \SetaPDF_Core_ColorSpace $colorSpace,
         ?array $decodeArray,
-        MaskInterface $mask = null
+        ?MaskInterface $mask = null
     ) {
         $this->_width = $width;
         $this->_height = $height;
@@ -190,9 +190,10 @@ abstract class AbstractImage implements MaskInterface
 
         // we need to get the real color
         if ($this->_colorSpace instanceof \SetaPDF_Core_ColorSpace_Indexed) {
-            // when we need to apply a decode array and an indexed color space we will need to apply the decode array before getting the corrosponding color
+            // when we need to apply a decode array and an indexed color space we will need to apply the decode array
+            // before getting the corresponding color
             if ($this->_decodeArray !== null) {
-                // check if the decode already was cached
+                // check if the 'decode' already was cached
                 if (!isset($this->_decodedColors[$color])) {
                     // decode the color
                     $this->_decodedColors[$color] = chr($this->_applyDecodeArray(0, ord($color)));
@@ -225,7 +226,7 @@ abstract class AbstractImage implements MaskInterface
 
         // check if we have the color in the cache
         if (!isset($this->_colors[$colorKey])) {
-            // when we have a decode array and its not indexed we will apply it to
+            // when we have a decode array, and it's not indexed we will apply it to
             // the value that will be cached so that we are saving a small amount of memory.
             if ($this->_decodeArray !== null) {
                 if (!($this->_colorSpace instanceof \SetaPDF_Core_ColorSpace_Indexed)) {

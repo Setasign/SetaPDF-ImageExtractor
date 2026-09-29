@@ -48,14 +48,14 @@ class ImageExtractor
     public static function getImagesByPage(
         \SetaPDF_Core_Document_Page $page
     ): array {
-        $ressources = $page->getCanvas()->getResources(true);
+        $resources = $page->getCanvas()->getResources(true);
         // make sure that there are xObjects
-        if ($ressources === false) {
+        if ($resources === false) {
             return [];
         }
 
         // create a new ImageProcessor
-        $imageProcessor = new ImageProcessor($page->getCanvas()->getStream(), ($page->getRotation() / 90) % 2 > 0, $ressources);
+        $imageProcessor = new ImageProcessor($page->getCanvas()->getStream(), ($page->getRotation() / 90) % 2 > 0, $resources);
 
         // process all the data
         $data = $imageProcessor->process();
@@ -243,8 +243,8 @@ class ImageExtractor
                 // we will need to ignore the left pieces of the byte
                 $x = 0;
 
-                // calculate a seperator so we can cut the byte
-                $byteSeperator = (2 ** $bitsPerComponent) - 1;
+                // calculate a separator so we can cut the byte
+                $byteSeparator = (2 ** $bitsPerComponent) - 1;
 
                 // read as long as the image is incomplete.
                 for ($i = 0; $i < $max;) {
@@ -261,8 +261,8 @@ class ImageExtractor
 
                     // iterate through the byte
                     for ($bitOffset = 8 - $bitsPerComponent; $bitOffset >= 0; $bitOffset -= $bitsPerComponent) {
-                        // get the current piece by using the byte seperator
-                        $colorByte = ($byte >> $bitOffset) & $byteSeperator;
+                        // get the current piece by using the byte separator
+                        $colorByte = ($byte >> $bitOffset) & $byteSeparator;
 
                         // when we don't have an indexed image we will need to change the color to a value from 1 to 256
                         if (!$colorSpace instanceof \SetaPDF_Core_ColorSpace_Indexed) {
@@ -299,7 +299,7 @@ class ImageExtractor
             unset($stream);
         }
 
-        //  delete the decoded stream, the colorspace and the dirctionary to save memory
+        //  delete the decoded stream, the colorspace and the dictionary to save memory
         unset($decodedStream, $colorSpace, $dict);
 
         // finish writing the image

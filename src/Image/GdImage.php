@@ -24,7 +24,7 @@ class GdImage extends AbstractImage
         int $height,
         \SetaPDF_Core_ColorSpace $colorSpace,
         ?array $decodeArray,
-        MaskInterface $mask = null
+        ?MaskInterface $mask = null
     ) {
         if (!\extension_loaded('gd')) {
             throw new \BadMethodCallException('GD is not installed.');
@@ -238,7 +238,7 @@ class GdImage extends AbstractImage
     }
 
     /**
-     * Does nothing, because gd cant do mutch more with the image
+     * Does nothing, because gd cant do match more with the image
      *
      * @return void
      */
@@ -270,7 +270,7 @@ class GdImage extends AbstractImage
     }
 
     /**
-     * Returns if the Image should read the MaskInterface pixel by pixel or if it should get the stream afterwards
+     * Returns if the Image should read the MaskInterface pixel by pixel or if it should get the stream afterward
      *
      * @return bool
      */

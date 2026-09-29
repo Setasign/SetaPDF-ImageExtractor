@@ -59,9 +59,9 @@ class ImagickImage extends AbstractImage
         int $height,
         \SetaPDF_Core_ColorSpace $colorSpace,
         ?array $decodeArray,
-        MaskInterface $mask = null
+        ?MaskInterface $mask = null
     ) {
-        // checking for existance of Imagick
+        // checking for existence of Imagick
         if (!\extension_loaded('imagick')) {
             throw new \BadMethodCallException('Imagick is not installed.');
         }
@@ -173,7 +173,7 @@ class ImagickImage extends AbstractImage
      */
     public function writePixel(string $color): void
     {
-        // move the color entrys to the pixels
+        // move the color entries to the pixels
         foreach ($this->_getColor($color) as $c) {
             $this->_pixels[] = $c;
         }

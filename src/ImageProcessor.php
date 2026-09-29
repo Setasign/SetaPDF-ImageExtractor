@@ -33,8 +33,7 @@ class ImageProcessor
         string $contentStream,
         bool $switchWidthAndHeight,
         \SetaPDF_Core_Type_Dictionary $resources,
-
-        \SetaPDF_Core_Canvas_GraphicState $graphicState = null
+        ?\SetaPDF_Core_Canvas_GraphicState $graphicState = null
     ) {
         $this->_stream = $contentStream;
         $this->_switchWidthAndHeight = $switchWidthAndHeight;
